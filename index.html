@@ -1,0 +1,51 @@
+<html>
+<head>
+    <title>sequenced</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="logo-container">
+            <div class="logo-icon">
+                <div class="logo-dot dot1"></div>
+                <div class="logo-dot dot2"></div>
+                <div class="logo-dot dot3"></div>
+            </div>
+            <div class="logo-text">sequenced</div>
+        </div>
+        <div class="game-info-top">
+            <div id="number-odds">Next number range: 1-?</div>
+            <div id="new-number-box"></div>
+            <div id="messages"></div>
+        </div>
+        <div id="sequence-container"></div>
+        
+        <div class="progress-info">
+            <div id="current-level">Level: 1</div>
+            <div id="current-round">Round: 1/6</div>
+        </div>
+
+        <button id="next-level-btn">Next Level</button>
+        <button id="restart-btn">Reset</button>
+    </div>
+    
+    <button id="how-to-play-btn">?</button>
+
+    <div id="how-to-play-popup">
+        <div class="popup-content">
+            <h2>How to Play</h2>
+            <p>You receive a random number each round.</p>
+            <p>Your goal: Place it into an ordered sequence.</p>
+            <p>Click on a gap to insert the number.</p>
+            <p>If the sequence stays in order, you continue!</p>
+            <p>One mistake = Game Over.</p>
+            <p>Survive all rounds to win!</p>
+            <p class="tip">Tip: Think ahead! Choose the best placement before locking in.</p>
+            <button id="close-popup">X</button>
+        </div>
+    </div>
+    
+    <script type="module" src="game.js"></script>
+</body>
+</html>
