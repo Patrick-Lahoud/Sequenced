@@ -1,0 +1,7 @@
+let newNumber;
+do {
+    newNumber = Math.floor(Math.random() * currentMax) + 1;
+} while (newNumber === lastGeneratedNumber && currentMax > 1);
+lastGeneratedNumber = newNumber;
+return newNumber;
+

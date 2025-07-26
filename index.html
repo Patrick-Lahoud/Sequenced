@@ -3,15 +3,17 @@
     <title>sequenced</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <meta name="google-site-verification" content="dnko3Owz1u8DY6XLOr4D_s6qyPuzD76ZJPMcQGaKKZs" />
 </head>
 <body>
     <div class="game-container">
         <div class="logo-container">
             <div class="logo-icon">
-                <div class="logo-dot dot1"></div>
-                <div class="logo-dot dot2"></div>
-                <div class="logo-dot dot3"></div>
+                <div class="face-container">
+                    <div class="eye left-eye"></div>
+                    <div class="eye right-eye"></div>
+                    <div class="mouth"></div>
+                </div>
+                <div class="speech-bubble" id="speech-bubble"></div>
             </div>
             <div class="logo-text">sequenced</div>
         </div>
@@ -35,15 +37,34 @@
 
     <div id="how-to-play-popup">
         <div class="popup-content">
-            <h2>How to Play</h2>
-            <p>You receive a random number each round.</p>
-            <p>Your goal: Place it into an ordered sequence.</p>
-            <p>Click on a gap to insert the number.</p>
-            <p>If the sequence stays in order, you continue!</p>
-            <p>One mistake = Game Over.</p>
-            <p>Survive all rounds to win!</p>
-            <p class="tip">Tip: Think ahead! Choose the best placement before locking in.</p>
             <button id="close-popup">X</button>
+            <h2>How to Play</h2>
+            
+            <div class="popup-scroll-content">
+                <div class="popup-section">
+                    <h3><span class="popup-icon">💡</span> The Goal</h3>
+                    <p>Your main objective is to place the new number into the sequence so that all numbers remain in <span class="highlight">ascending order</span> (from smallest to largest).</p>
+                </div>
+
+                <div class="popup-section">
+                    <h3><span class="popup-icon">👇</span> How to Play</h3>
+                    <ul>
+                        <li><span class="popup-icon-small">🔢</span> Each round, you'll receive a random number.</li>
+                        <li><span class="popup-icon-small">🖱️</span> Click on any empty gap in the sequence to insert the number.</li>
+                        <li><span class="popup-icon-small">✨</span> If your placement keeps the sequence ordered, you continue!</li>
+                    </ul>
+                </div>
+
+                <div class="popup-section">
+                    <h3><span class="popup-icon">⚠️</span> Important Rules</h3>
+                    <ul>
+                        <li><span class="popup-icon-small">🚫</span> One mistake (an out-of-order sequence) means Game Over!</li>
+                        <li><span class="popup-icon-small">🏆</span> Survive all rounds in a level to complete it and advance to a harder one.</li>
+                    </ul>
+                </div>
+                
+                <p class="tip"><span class="popup-icon">🧠</span> **Tip:** Think strategically! Visualize where the number fits best before clicking. There's no time limit!</p>
+            </div>
         </div>
     </div>
     
