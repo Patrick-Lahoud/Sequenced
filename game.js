@@ -7,6 +7,7 @@ let totalRounds;
 let sequence;
 let currentNumber;
 let isGameOver = false;
+let totalFails = 0; // Add total fails counter
 let lastGeneratedNumber = null; // Track last generated number
 let speechBubbleTimeout;
 let lastSpeechTime = 0;
@@ -19,15 +20,116 @@ const currentLevelEl = document.getElementById('current-level');
 const numberOddsEl = document.getElementById('number-odds');
 const nextLevelBtn = document.getElementById('next-level-btn');
 const restartBtn = document.getElementById('restart-btn');
+const totalFailsEl = document.getElementById('total-fails'); // Get fails element
+const howToPlayBtn = document.getElementById('how-to-play-btn');
+const howToPlayPopup = document.getElementById('how-to-play-popup');
+const closePopupButton = document.getElementById('close-popup');
+const loadingScreen = document.getElementById('loading-screen'); // Get loading screen element
+const faceContainer = document.querySelector('.face-container'); // Get face container element
+const mouthEl = document.querySelector('.mouth'); // Get mouth element
+const leftEyeEl = document.querySelector('.left-eye'); // Get left eye element
+const rightEyeEl = document.querySelector('.right-eye'); // Get right eye element
 
 // Null checks for critical elements
 if (!sequenceContainer || !currentRoundEl || !newNumberBoxEl || !messagesEl || 
-    !currentLevelEl || !numberOddsEl || !nextLevelBtn || !restartBtn) {
+    !currentLevelEl || !numberOddsEl || !nextLevelBtn || !restartBtn ||
+    !totalFailsEl || !howToPlayBtn || !howToPlayPopup || !closePopupButton || !loadingScreen ||
+    !faceContainer || !mouthEl || !leftEyeEl || !rightEyeEl) {
     console.error('One or more critical game elements are missing');
 }
 
 let currentLevel = 1;
 let currentLevelConfig;
+let mouthStateTimerId = null; // Timer for random mouth switching
+
+// Function to manage mouth shape by adding/removing specific classes
+function setMouthShapeClass(isCircle) {
+    if (!mouthEl) return;
+    if (isCircle) {
+        mouthEl.classList.add('circle-random');
+    } else {
+        mouthEl.classList.remove('circle-random');
+    }
+}
+
+// Function to start random mouth switching
+function startRandomMouthSwitching() {
+    // Clear any existing timer
+    if (mouthStateTimerId) {
+        clearTimeout(mouthStateTimerId);
+        mouthStateTimerId = null;
+    }
+
+    const switchMouth = () => {
+        // If the face is currently in 'sad' or 'happy' state (CSS overrides), don't random switch
+        // This check ensures random switching only happens in the 'thinking' (idle) state
+        if (faceContainer.classList.contains('sad') || faceContainer.classList.contains('happy')) {
+            mouthStateTimerId = null; // Ensure timer is stopped if state changed externally
+            return;
+        }
+
+        // Randomly choose between straight and circle
+        const isCircle = Math.random() < 0.5; // 50% chance for circle mouth
+        setMouthShapeClass(isCircle);
+
+        // Schedule next switch after a random delay (e.g., 2 to 5 seconds)
+        const delay = Math.random() * 3000 + 2000; // 2000ms (2s) to 5000ms (5s)
+        mouthStateTimerId = setTimeout(switchMouth, delay);
+    };
+
+    switchMouth(); // Start immediately
+}
+
+// Add reactive face functionality
+function updateFaceState(state, tip = '') {
+    if (!faceContainer || !mouthEl || !leftEyeEl || !rightEyeEl) return;
+    
+    // Remove all general state classes and random mouth class before setting new state
+    faceContainer.classList.remove('happy', 'sad', 'thinking');
+    mouthEl.classList.remove('circle-random'); // Always remove random class when explicitly setting state
+
+    // Clear random mouth switching timer
+    if (mouthStateTimerId) {
+        clearTimeout(mouthStateTimerId);
+        mouthStateTimerId = null;
+    }
+    
+    // Reset eye transforms when state changes, as they are controlled by mousemove separately
+    leftEyeEl.style.transform = '';
+    rightEyeEl.style.transform = '';
+
+    // Set the new state class on face container
+    faceContainer.classList.add(state);
+
+    // Apply specific mouth and eye logic based on state
+    if (state === 'happy') {
+        // The CSS for .face-container.happy .mouth already applies the circle mouth
+        // and eye styles. No need to manually set mouth properties or start random switching here.
+        
+        // After a short delay, revert to thinking state and restart random switching
+        setTimeout(() => {
+            // Check if game is still active and not sad before reverting to thinking
+            // This prevents reverting to thinking if game over occurred during the happy timeout
+            if (!isGameOver && !faceContainer.classList.contains('sad')) {
+                updateFaceState('thinking', getNextTip());
+            }
+        }, 800); // Duration of the 'happy' animation/display
+    } else if (state === 'sad') {
+        // The CSS for .face-container.sad .mouth already applies the frown mouth and red color
+        // and eye styles. No random switching when sad.
+    } else { // 'thinking' state or default
+        startRandomMouthSwitching(); // Start/continue random switching for 'thinking' state
+    }
+    
+    // Apply tooltip logic
+    if (tip) {
+        faceContainer.setAttribute('title', tip);
+        faceContainer.style.cursor = 'help';
+    } else {
+        faceContainer.removeAttribute('title');
+        faceContainer.style.cursor = 'default';
+    }
+}
 
 // Add speech bubble functionality
 function showSpeechBubble(message, duration = 4000) {
@@ -143,6 +245,7 @@ function initializeLevel() {
     
     // Update color theme based on level
     updateColorTheme();
+    updateProgressIndicator(); // Ensure progress indicator is updated on level init
 }
 
 function updateColorTheme() {
@@ -180,12 +283,14 @@ function renderSequence() {
         currentNumber = generateNewNumber();
         if (newNumberBoxEl) {
             newNumberBoxEl.textContent = currentNumber;
+            // Play a subtle sound when new number is generated
+            sounds.place.play().catch(e => console.log('Audio play failed:', e));
         }
     } else if (newNumberBoxEl) {
         newNumberBoxEl.textContent = '';
     }
     
-    updateProgressIndicator();
+    updateProgressIndicator(); // Call after sequence is rendered to ensure progress is shown
     
     for (let i = 0; i < currentLevelConfig.slots; i++) {
         if (sequence[i] !== null && sequence[i] !== undefined) {
@@ -264,38 +369,19 @@ function updateGameContainerSize() {
         gameContainerHeight += messages.offsetHeight;
     }
     
-    // Add visible button height
-    if (nextLevelBtnEl && window.getComputedStyle(nextLevelBtnEl).display !== 'none') {
-        gameContainerHeight += nextLevelBtnEl.offsetHeight;
-    } else if (restartBtnEl && window.getComputedStyle(restartBtnEl).display !== 'none') {
+    // Add visible button height - these will now be controlled by JS for auto-advance
+    // nextLevelBtn will always be hidden, restartBtn is now always visible via CSS.
+    if (restartBtnEl) { // No need to check display here, it's always visible
         gameContainerHeight += restartBtnEl.offsetHeight;
     }
     
     // Add extra padding for spacing
-    gameContainerHeight += 120; // Increased from 80 to 120 for more space at bottom
+    gameContainerHeight += 180; // Increased for more space at bottom
 
     gameContainer.style.width = `${gameContainerWidth}px`;
     gameContainer.style.height = `${gameContainerHeight}px`;
 }
 
-// Add reactive face functionality
-function updateFaceState(state, tip = '') {
-    const faceContainer = document.querySelector('.face-container');
-    if (!faceContainer) return;
-    
-    faceContainer.className = 'face-container ' + state;
-    
-    // Add tooltip for tips
-    if (tip) {
-        faceContainer.setAttribute('title', tip);
-        faceContainer.style.cursor = 'help';
-    } else {
-        faceContainer.removeAttribute('title');
-        faceContainer.style.cursor = 'default';
-    }
-}
-
-// Update face based on game state
 function handleInsertion(position) {
     if (isGameOver || sequence[position] !== null && sequence[position] !== undefined) return;
 
@@ -303,39 +389,37 @@ function handleInsertion(position) {
     sounds.place.play().catch(e => console.log('Audio play failed:', e));
     
     if (!checkSorted()) {
-        isGameOver = true;
-        updateFaceState('sad', getHelpfulTip());
-        showMessage('Game Over! Wrong placement', 'error');
-        showSpeechBubble(getGameOverDialogue(), 5000);
-        sounds.game_over.play().catch(e => console.log('Audio play failed:', e));
-        if (sequenceContainer) {
-            sequenceContainer.classList.add('shaking');
-        }
-        if (nextLevelBtn) nextLevelBtn.style.display = 'none';
-        if (restartBtn) restartBtn.style.display = 'inline-block';
+        // Play error sound for wrong placement
+        sounds.error.play().catch(e => console.log('Audio play failed:', e));
+        gameOver('wrong_placement');
         return;
     }
 
-    // Make the face smile for correct placement
-    updateFaceState('happy', getEncouragement());
-    setTimeout(() => updateFaceState('thinking', getNextTip()), 800);
+    // Play success sound for correct placement
+    sounds.success.play().catch(e => console.log('Audio play failed:', e));
 
+    // Make the face smile (now circle mouth) for correct placement
+    updateFaceState('happy', getEncouragement()); // updateFaceState will handle reverting to 'thinking'
+    // The random mouth switching will restart when it reverts to 'thinking' state
+    
     currentRound++;
 
     if (currentRound > totalRounds) {
         sequence[position] = currentNumber;
-        updateFaceState('happy');
-        renderSequence();
-        isGameOver = true;
-        if (nextLevelBtn) nextLevelBtn.style.display = 'inline-block';
-        if (restartBtn) restartBtn.style.display = 'none';
+        updateFaceState('happy'); // Happy for level completion
+        renderSequence(); // Render one last time to show the full sequence
+        isGameOver = true; // Set game over state
+        document.body.classList.add('game-over'); // Add game-over class to body
+        // Automatically advance, so hide next level button. Restart button is always visible via CSS.
+        if (nextLevelBtn) nextLevelBtn.style.display = 'none'; 
         showMessage(`Level ${currentLevel} Complete!\n_________________________`, 'success');
         showSpeechBubble(getLevelCompleteDialogue(), 5000);
         sounds.level_complete.play().catch(e => console.log('Audio play failed:', e));
+        // The advance to next level logic will be triggered by showMessage for 'success' type
         return;
     }
 
-    updateFaceState('thinking');
+    // Only render sequence if not level complete
     renderSequence();
     
     // Random chance to show dialogue during gameplay
@@ -355,19 +439,80 @@ function checkSorted() {
     return true;
 }
 
+function gameOver(reason) {
+    isGameOver = true;
+    totalFails++;
+    if (totalFailsEl) totalFailsEl.textContent = `Fails: ${totalFails}`;
+    document.body.classList.add('game-over'); // Add game-over class to body
+    updateFaceState('sad', getHelpfulTip());
+    
+    let messageText = 'Game Over! Wrong placement';
+    
+    showMessage(messageText, 'error');
+    showSpeechBubble(getGameOverDialogue(), 5000);
+    sounds.game_over.play().catch(e => console.log('Audio play failed:', e));
+    if (sequenceContainer) {
+        sequenceContainer.classList.add('shaking');
+    }
+    if (nextLevelBtn) nextLevelBtn.style.display = 'none'; // Keep next level button hidden
+}
+
+function advanceToNextLevel() {
+    currentLevel++;
+    currentRound = 1;
+    lastGeneratedNumber = null;
+    initializeLevel();
+    isGameOver = false; // Reset game over state for new level
+    document.body.classList.remove('game-over'); // Remove game-over class from body
+    if (messagesEl) {
+        messagesEl.textContent = '';
+        messagesEl.className = '';
+    }
+    if (sequenceContainer) {
+        sequenceContainer.classList.remove('shaking');
+    }
+    // Ensure next level button remains hidden for auto advance. Restart button is always visible.
+    if (nextLevelBtn) nextLevelBtn.style.display = 'none'; 
+    if (numberOddsEl) {
+        numberOddsEl.classList.remove('hide-smooth');
+        numberOddsEl.style.display = 'block';
+    }
+    renderSequence();
+    updateGameContainerSize();
+    
+    // Play level advancement sound
+    sounds.level_complete.play().catch(e => console.log('Audio play failed:', e));
+    
+    // Show encouraging/discouraging message for new level
+    setTimeout(() => {
+        const dialogue = getRandomDialogue();
+        if (dialogue) {
+            showSpeechBubble(dialogue);
+        }
+    }, 1500);
+    updateFaceState('thinking', getNextTip()); // Reset face to thinking for new level
+}
+
 function showMessage(text, type) {
     if (messagesEl) {
         messagesEl.textContent = text;
         messagesEl.className = type;
         
-        // Create flashing overlay for big events
-        if (type === 'success' || type === 'error') {
+        const gameContainer = document.querySelector('.game-container');
+
+        // Create flashing overlay only for success (Level Complete)
+        if (type === 'success') {
+            // Fade out game container before showing flash overlay
+            if (gameContainer) {
+                gameContainer.classList.add('fade-game-out');
+            }
+
             const flashOverlay = document.createElement('div');
             flashOverlay.className = 'flash-overlay';
             flashOverlay.innerHTML = `
                 <div class="flash-content">
-                    <h1 class="flash-text">${type === 'success' ? 'LEVEL COMPLETE!' : 'GAME OVER'}</h1>
-                    <p class="flash-subtitle">${type === 'success' ? 'Perfect sequence!' : 'Try again...'}</p>
+                    <h1 class="flash-text">LEVEL COMPLETE!</h1>
+                    <p class="flash-subtitle">Perfect sequence!</p>
                 </div>
             `;
             document.body.appendChild(flashOverlay);
@@ -382,10 +527,21 @@ function showMessage(text, type) {
                 flashOverlay.style.pointerEvents = 'none';
             }, 600); // 10ms (initial delay) + 500ms (opacity transition) + 90ms (buffer)
             
-            // Remove after animation
+            // Remove after animation and fade game back in
             setTimeout(() => {
                 flashOverlay.remove();
+                if (gameContainer) {
+                    gameContainer.classList.remove('fade-game-out');
+                }
+                // Automatically advance to the next level
+                advanceToNextLevel();
             }, 2500); // Allow animations to play (flashPulse is 1.5s, fadeInUp is 1.3s total)
+        } else if (type === 'error') {
+            // For error, just show the message, no full screen overlay or fade
+            // Ensure game container is not faded out if it was from a previous success state
+            if (gameContainer) {
+                gameContainer.classList.remove('fade-game-out');
+            }
         }
         
         if (sequenceContainer) {
@@ -403,39 +559,19 @@ function updateProgressIndicator() {
         document.querySelector('.game-container').appendChild(progressIndicator);
     }
     
-    // Calculate progress percentage (0-100%)
+    // Calculate progress percentage (0-100%) for normal mode
     const totalLevels = CONFIG.LEVEL_CONFIG.length;
     const progressPercentage = ((currentLevel - 1) / totalLevels) * 100;
     
     // Fill the container based on current level
     progressIndicator.style.setProperty('--liquid-height', `${progressPercentage}%`);
     
-    // Apply the height to the pseudo-element
-    progressIndicator.style.setProperty('--liquid-height', `${progressPercentage}%`);
+    // Set data attributes regardless of mode for potential CSS use
     progressIndicator.setAttribute('data-level', currentLevel);
-    progressIndicator.setAttribute('data-max-level', totalLevels);
-    
-    // Apply the height through CSS variable
-    document.documentElement.style.setProperty('--liquid-height', `${progressPercentage}%`);
-    
-    // Set the pseudo-element height directly with inline styles
-    if (progressIndicator.style.setProperty) {
-        // For modern browsers
-        document.documentElement.style.setProperty('--liquid-height', `${progressPercentage}%`);
-    } else {
-        // Fallback for older browsers
-        progressIndicator.querySelector('::after').style.height = `${progressPercentage}%`;
-    }
-    
-    // Apply directly to the element using inline style as a fallback
-    progressIndicator.style.backgroundSize = `100% ${10 + progressPercentage/10}px`;
+    progressIndicator.setAttribute('data-max-level', CONFIG.LEVEL_CONFIG.length);
 }
 
 // How to Play Popup
-const howToPlayBtn = document.getElementById('how-to-play-btn');
-const howToPlayPopup = document.getElementById('how-to-play-popup');
-const closePopupButton = document.getElementById('close-popup');
-
 if (howToPlayBtn && howToPlayPopup && closePopupButton) {
     howToPlayBtn.addEventListener('click', () => {
         sounds.button_click.play().catch(e => console.log('Audio play failed:', e));
@@ -446,61 +582,6 @@ if (howToPlayBtn && howToPlayPopup && closePopupButton) {
         sounds.button_click.play().catch(e => console.log('Audio play failed:', e));
         howToPlayPopup.style.display = 'none';
     });
-}
-
-function createInteractiveBackground() {
-    const overlay = document.querySelector('.particle-overlay');
-    
-    for(let i = 0; i < 200; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        particle.style.left = `${Math.random() * 100}%`;
-        particle.style.top = `${Math.random() * 100}%`;
-        particle.style.opacity = Math.random() * 0.5;
-        overlay.appendChild(particle);
-    }
-
-    const lineCount = 5;
-    for(let i = 0; i < lineCount; i++) {
-        const line = document.createElement('div');
-        line.className = 'glow-line';
-        line.style.top = `${Math.random() * 100}%`;
-        line.style.width = `${Math.random() * 200 + 100}%`;
-        line.style.transform = `rotate(${Math.random() * 180 - 90}deg)`;
-        line.style.opacity = 0.2;
-        overlay.appendChild(line);
-    }
-
-    let mouseX = 0, mouseY = 0;
-    document.addEventListener('mousemove', (e) => {
-        mouseX = e.clientX;
-        mouseY = e.clientY;
-    });
-
-    function updateBackground() {
-        const particles = document.querySelectorAll('.particle');
-        const lines = document.querySelectorAll('.glow-line');
-        
-        particles.forEach(particle => {
-            const rect = particle.getBoundingClientRect();
-            const dx = mouseX - (rect.left + rect.width/2);
-            const dy = mouseY - (rect.top + rect.height/2);
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            const force = Math.min(500/(dist+1), 30);
-            
-            particle.style.transform = `translate(${dx * 0.02}px, ${dy * 0.02}px)`;
-            particle.style.opacity = 0.2 + (0.3 * Math.min(1, force/10));
-        });
-
-        lines.forEach(line => {
-            line.style.transform += `rotate(${Math.sin(Date.now()/2000) * 0.02}deg)`;
-            line.style.opacity = 0.1 + Math.abs(Math.sin(Date.now()/1000)) * 0.1;
-        });
-
-        requestAnimationFrame(updateBackground);
-    }
-
-    updateBackground();
 }
 
 // Add new helper functions for face tips
@@ -534,9 +615,11 @@ function getNextTip() {
 
 // Initialize face with appropriate tip
 initializeLevel();
-updateFaceState('thinking', getNextTip());
+updateFaceState('thinking', getNextTip()); // 'thinking' state will now display the default straight mouth or randomly switch
 renderSequence();
 updateGameContainerSize();
+
+// The restart button is now always visible via CSS, no need to hide it on initial load.
 
 // Add mouse tracking for eyes
 document.addEventListener('mousemove', (e) => {
@@ -561,44 +644,21 @@ document.addEventListener('mousemove', (e) => {
     }
 });
 
-nextLevelBtn.addEventListener('click', () => {
-    sounds.button_click.play().catch(e => console.log('Audio play failed:', e));
-    currentLevel++;
-    currentRound = 1;
-    lastGeneratedNumber = null; 
-    initializeLevel();
-    isGameOver = false;
-    if (messagesEl) {
-        messagesEl.textContent = '';
-        messagesEl.className = '';
-    }
-    if (sequenceContainer) {
-        sequenceContainer.classList.remove('shaking');
-    }
-    if (nextLevelBtn) nextLevelBtn.style.display = 'none';
-    if (restartBtn) restartBtn.style.display = 'inline-block';
-    if (numberOddsEl) {
-        numberOddsEl.classList.remove('hide-smooth');
-        numberOddsEl.style.display = 'block';
-    }
-    renderSequence();
-    updateGameContainerSize();
-    
-    // Show encouraging/discouraging message for new level
-    setTimeout(() => {
-        const dialogue = getRandomDialogue();
-        if (dialogue) {
-            showSpeechBubble(dialogue);
-        }
-    }, 1500);
-});
+// Next level button handler
+if (nextLevelBtn) {
+    nextLevelBtn.addEventListener('click', () => {
+        sounds.button_click.play().catch(e => console.log('Audio play failed:', e));
+        advanceToNextLevel();
+    });
+}
 
 restartBtn.addEventListener('click', () => {
     sounds.button_click.play().catch(e => console.log('Audio play failed:', e));
     currentRound = 1;
-    lastGeneratedNumber = null; 
+    lastGeneratedNumber = null;
     initializeLevel();
     isGameOver = false;
+    document.body.classList.remove('game-over'); // Remove game-over class from body
     if (messagesEl) {
         messagesEl.textContent = '';
         messagesEl.className = '';
@@ -606,16 +666,174 @@ restartBtn.addEventListener('click', () => {
     if (sequenceContainer) {
         sequenceContainer.classList.remove('shaking');
     }
+    // After restart, hide next level button. Restart button is always visible via CSS.
     if (nextLevelBtn) nextLevelBtn.style.display = 'none';
-    if (restartBtn) restartBtn.style.display = 'inline-block';
     if (numberOddsEl) {
         numberOddsEl.classList.remove('hide-smooth');
         numberOddsEl.style.display = 'block';
     }
     renderSequence();
+    updateFaceState('thinking', getNextTip()); // Reset face to thinking on restart
 });
 
 // Show initial welcome message
 setTimeout(() => {
     showSpeechBubble("Welcome to Sequenced! Click the ? if you need help.", 6000);
 }, 2000);
+
+// Audio test functionality
+const audioTestBtn = document.getElementById('audio-test-btn');
+if (audioTestBtn) {
+    audioTestBtn.addEventListener('click', () => {
+        console.log('Audio test button clicked');
+        
+        // Diagnostic information
+        console.log('Audio context state:', window.soundSystem?.audioContext?.state);
+        console.log('Audio enabled:', window.soundSystem?.audioEnabled);
+        
+        // Test all sound types
+        sounds.button_click.play();
+        setTimeout(() => sounds.success.play(), 200);
+        setTimeout(() => sounds.error.play(), 400);
+        setTimeout(() => sounds.place.play(), 600);
+        
+        // Show feedback
+        audioTestBtn.textContent = '✅ Audio Tested!';
+        audioTestBtn.style.background = '#51cf66';
+        setTimeout(() => {
+            audioTestBtn.textContent = '🔊 Test Audio';
+            audioTestBtn.style.background = '#ff6b6b';
+        }, 2000);
+    });
+}
+
+// Audio toggle functionality
+const audioToggleBtn = document.getElementById('audio-toggle-btn');
+const audioStatus = document.getElementById('audio-status');
+
+if (audioToggleBtn) {
+    let audioEnabled = true;
+    
+    audioToggleBtn.addEventListener('click', () => {
+        audioEnabled = !audioEnabled;
+        
+        if (audioEnabled) {
+            audioToggleBtn.textContent = '🔊 Audio ON';
+            audioToggleBtn.style.background = '#51cf66';
+            // Re-enable audio system
+            if (window.soundSystem) {
+                window.soundSystem.enable();
+            }
+        } else {
+            audioToggleBtn.textContent = '🔇 Audio OFF';
+            audioToggleBtn.style.background = '#ff6b6b';
+            // Disable audio system
+            if (window.soundSystem) {
+                window.soundSystem.disable();
+            }
+        }
+        
+        // Play a test sound to confirm
+        if (audioEnabled) {
+            sounds.button_click.play();
+        }
+    });
+}
+
+// Update audio status
+function updateAudioStatus() {
+    if (audioStatus) {
+        if (window.soundSystem?.audioContext?.state === 'running') {
+            audioStatus.textContent = 'Audio: Working ✅';
+            audioStatus.style.background = '#51cf66';
+        } else if (window.soundSystem?.audioContext?.state === 'suspended') {
+            audioStatus.textContent = 'Audio: Suspended ⏸️';
+            audioStatus.style.background = '#ffa500';
+        } else if (window.soundSystem?.fallbackAudio) {
+            audioStatus.textContent = 'Audio: Fallback 🔄';
+            audioStatus.style.background = '#ffa500';
+        } else {
+            audioStatus.textContent = 'Audio: Failed ❌';
+            audioStatus.style.background = '#ff6b6b';
+        }
+    }
+}
+
+// Update status periodically
+setInterval(updateAudioStatus, 1000);
+updateAudioStatus();
+
+// Background music toggle functionality
+const musicToggleBtn = document.getElementById('music-toggle-btn');
+if (musicToggleBtn) {
+    let musicEnabled = true;
+    
+    musicToggleBtn.addEventListener('click', () => {
+        musicEnabled = !musicEnabled;
+        
+        if (musicEnabled) {
+            musicToggleBtn.textContent = '🎵 Music ON';
+            musicToggleBtn.style.background = '#8b5cf6';
+            // Start background music
+            if (window.soundSystem) {
+                window.soundSystem.toggleBackgroundMusic();
+            }
+        } else {
+            musicToggleBtn.textContent = '🔇 Music OFF';
+            musicToggleBtn.style.background = '#6b7280';
+            // Stop background music
+            if (window.soundSystem) {
+                window.soundSystem.toggleBackgroundMusic();
+            }
+        }
+        
+        // Play a test sound to confirm
+        sounds.button_click.play();
+    });
+}
+
+// Add loading screen hide logic here
+document.addEventListener('DOMContentLoaded', () => {
+    const loadingScreen = document.getElementById('loading-screen');
+    const loadingFaceContainer = document.querySelector('.loading-face-container');
+    const loadingLeftEye = document.querySelector('.loading-left-eye');
+    const loadingRightEye = document.querySelector('.loading-right-eye');
+
+    let loadingEyesMoveListener; // Declare to be able to remove it
+
+    if (loadingScreen && loadingFaceContainer && loadingLeftEye && loadingRightEye) {
+        // Function to track mouse for loading screen eyes
+        loadingEyesMoveListener = (e) => {
+            const rect = loadingFaceContainer.getBoundingClientRect();
+            if (!rect) return;
+            
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            const deltaX = (e.clientX - centerX) / 20; // Adjust divisor for sensitivity
+            const deltaY = (e.clientY - centerY) / 20;
+            
+            // Limit eye movement
+            const maxMove = 5; // Pixels
+            
+            loadingLeftEye.style.transform = `translate(${Math.max(-maxMove, Math.min(maxMove, deltaX))}px, ${Math.max(-maxMove, Math.min(maxMove, deltaY))}px)`;
+            loadingRightEye.style.transform = `translate(${Math.max(-maxMove, Math.min(maxMove, deltaX))}px, ${Math.max(-maxMove, Math.min(maxMove, deltaY))}px)`;
+        };
+
+        // Add listener when loading screen is active
+        document.addEventListener('mousemove', loadingEyesMoveListener);
+
+        // Give a moment for the initial rendering and a short cinematic display
+        setTimeout(() => {
+            loadingScreen.classList.add('fade-out');
+            // Remove from DOM after transition completes
+            loadingScreen.addEventListener('transitionend', () => {
+                loadingScreen.style.display = 'none';
+                // Remove the mousemove listener for loading eyes once it's gone
+                document.removeEventListener('mousemove', loadingEyesMoveListener);
+                // Play a startup sound when game begins
+                sounds.success.play().catch(e => console.log('Audio play failed:', e));
+            }, { once: true }); // Use { once: true } to remove the listener after it fires
+        }, 2500); // Display loading screen for 2.5 seconds
+    }
+});

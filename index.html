@@ -5,6 +5,21 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div id="loading-screen">
+        <div class="loading-content">
+            <div class="loading-logo-container">
+                <div class="loading-logo-icon">
+                    <div class="loading-face-container">
+                        <div class="loading-eye loading-left-eye"></div>
+                        <div class="loading-eye loading-right-eye"></div>
+                        <div class="loading-mouth"></div>
+                    </div>
+                </div>
+                <div class="loading-text">sequenced</div>
+            </div>
+            <div class="loading-message">Loading<span class="dot-1">.</span><span class="dot-2">.</span><span class="dot-3">.</span></div>
+        </div>
+    </div>
     <div class="game-container">
         <div class="logo-container">
             <div class="logo-icon">
@@ -27,6 +42,7 @@
         <div class="progress-info">
             <div id="current-level">Level: 1</div>
             <div id="current-round">Round: 1/6</div>
+            <div id="total-fails">Fails: 0</div>
         </div>
 
         <button id="next-level-btn">Next Level</button>
@@ -34,6 +50,18 @@
     </div>
     
     <button id="how-to-play-btn">?</button>
+
+    <!-- Audio Test Button -->
+    <button id="audio-test-btn" style="position: fixed; top: 10px; right: 10px; z-index: 1000; background: #ff6b6b; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;">🔊 Test Audio</button>
+    
+    <!-- Audio Toggle Button -->
+    <button id="audio-toggle-btn" style="position: fixed; top: 50px; right: 10px; z-index: 1000; background: #51cf66; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;">🔊 Audio ON</button>
+    
+    <!-- Audio Status Indicator -->
+    <div id="audio-status" style="position: fixed; top: 90px; right: 10px; z-index: 1000; background: #333; color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px;">Audio: Loading...</div>
+    
+    <!-- Background Music Toggle -->
+    <button id="music-toggle-btn" style="position: fixed; top: 130px; right: 10px; z-index: 1000; background: #8b5cf6; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;">🎵 Music ON</button>
 
     <div id="how-to-play-popup">
         <div class="popup-content">
@@ -67,6 +95,7 @@
             </div>
         </div>
     </div>
+    
     
     <script type="module" src="game.js"></script>
 </body>
