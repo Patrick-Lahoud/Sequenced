@@ -238,6 +238,7 @@ function getLevelCompleteDialogue() {
 function initializeLevel() {
     currentLevelConfig = CONFIG.LEVEL_CONFIG.find(level => level.level === currentLevel);
     if (!currentLevelConfig) {
+        // If no more defined levels, use the last level's config to continue indefinitely
         currentLevelConfig = CONFIG.LEVEL_CONFIG[CONFIG.LEVEL_CONFIG.length - 1];
     }
     totalRounds = currentLevelConfig.rounds;
@@ -283,8 +284,6 @@ function renderSequence() {
         currentNumber = generateNewNumber();
         if (newNumberBoxEl) {
             newNumberBoxEl.textContent = currentNumber;
-            // Play a subtle sound when new number is generated
-            sounds.place.play().catch(e => console.log('Audio play failed:', e));
         }
     } else if (newNumberBoxEl) {
         newNumberBoxEl.textContent = '';
@@ -389,14 +388,9 @@ function handleInsertion(position) {
     sounds.place.play().catch(e => console.log('Audio play failed:', e));
     
     if (!checkSorted()) {
-        // Play error sound for wrong placement
-        sounds.error.play().catch(e => console.log('Audio play failed:', e));
         gameOver('wrong_placement');
         return;
     }
-
-    // Play success sound for correct placement
-    sounds.success.play().catch(e => console.log('Audio play failed:', e));
 
     // Make the face smile (now circle mouth) for correct placement
     updateFaceState('happy', getEncouragement()); // updateFaceState will handle reverting to 'thinking'
@@ -480,9 +474,6 @@ function advanceToNextLevel() {
     renderSequence();
     updateGameContainerSize();
     
-    // Play level advancement sound
-    sounds.level_complete.play().catch(e => console.log('Audio play failed:', e));
-    
     // Show encouraging/discouraging message for new level
     setTimeout(() => {
         const dialogue = getRandomDialogue();
@@ -559,16 +550,71 @@ function updateProgressIndicator() {
         document.querySelector('.game-container').appendChild(progressIndicator);
     }
     
-    // Calculate progress percentage (0-100%) for normal mode
+    progressIndicator.innerHTML = ''; // Clear existing segments
+
     const totalLevels = CONFIG.LEVEL_CONFIG.length;
-    const progressPercentage = ((currentLevel - 1) / totalLevels) * 100;
-    
-    // Fill the container based on current level
-    progressIndicator.style.setProperty('--liquid-height', `${progressPercentage}%`);
-    
-    // Set data attributes regardless of mode for potential CSS use
-    progressIndicator.setAttribute('data-level', currentLevel);
-    progressIndicator.setAttribute('data-max-level', CONFIG.LEVEL_CONFIG.length);
+    // Calculate total rounds across all levels to determine proportional segment heights
+    const totalRoundsAcrossAllLevels = CONFIG.LEVEL_CONFIG.reduce((sum, level) => sum + level.rounds, 0);
+
+    const currentRoundProgress = currentRound / totalRounds; // Progress within current round
+
+    // Calculate the hue for a given level number
+    const calculateLevelHue = (levelNum) => {
+        const maxLevel = CONFIG.LEVEL_CONFIG.length;
+        const hueRange = 210; // From 210 (blue) to 0 (red)
+        // Ensure levelProgress is clamped between 0 and 1, especially for maxLevel edge case
+        const levelProgress = maxLevel > 1 ? (levelNum - 1) / (maxLevel - 1) : 0;
+        return Math.round(210 - (hueRange * levelProgress));
+    };
+
+    for (let i = 1; i <= totalLevels; i++) {
+        const levelConfig = CONFIG.LEVEL_CONFIG.find(conf => conf.level === i);
+        if (!levelConfig) continue;
+
+        const levelSegment = document.createElement('div');
+        levelSegment.classList.add('level-segment');
+        // Set height proportional to the number of rounds in this level
+        levelSegment.style.height = `${(levelConfig.rounds / totalRoundsAcrossAllLevels) * 100}%`; 
+        levelSegment.style.flexShrink = 0; // Prevent shrinking
+
+        const levelHue = calculateLevelHue(i);
+        
+        if (i < currentLevel) {
+            // Completed levels: solid color, slightly darker
+            levelSegment.style.background = `hsl(${levelHue}, 70%, 40%)`;
+            levelSegment.style.border = `1px solid hsl(${levelHue}, 50%, 30%)`;
+            levelSegment.style.boxShadow = `inset 0 0 5px hsla(${levelHue}, 50%, 30%, 0.5)`;
+        } else if (i === currentLevel) {
+            // Current level: contains the 'liquid' fill
+            levelSegment.classList.add('current-level-track'); // Mark as current track for potential specific styling
+            levelSegment.style.background = `rgba(0, 0, 0, 0.4)`; // Background for the empty part of current track
+            levelSegment.style.border = `2px solid hsl(${levelHue}, 70%, 50%)`; // Brighter border for current
+            levelSegment.style.boxShadow = `0 0 10px hsla(${levelHue}, 70%, 60%, 0.6), inset 0 0 5px hsla(${levelHue}, 50%, 30%, 0.3)`;
+
+            const currentFill = document.createElement('div');
+            currentFill.classList.add('current-level-fill');
+            currentFill.style.height = `${currentRoundProgress * 100}%`; // Fill percentage
+            currentFill.style.background = `linear-gradient(to bottom, 
+                hsl(${levelHue}, 60%, 70%), 
+                hsl(${levelHue}, 50%, 65%), 
+                hsl(${levelHue}, 70%, 75%),
+                hsl(${levelHue}, 60%, 70%))`; // Use HSL colors
+            currentFill.style.animation = 'silverFlow 3s linear infinite';
+            currentFill.style.borderRadius = 'inherit'; // Inherit border radius from parent
+
+            levelSegment.appendChild(currentFill);
+        } else {
+            // Future levels: darker placeholder
+            levelSegment.style.background = `hsl(${levelHue}, 30%, 15%)`;
+            levelSegment.style.border = `1px dashed hsl(${levelHue}, 20%, 10%)`;
+            levelSegment.style.boxShadow = `inset 0 0 3px rgba(0,0,0,0.5)`;
+        }
+        // Apply common styles
+        levelSegment.style.borderRadius = '5px';
+        levelSegment.style.marginBottom = '2px';
+        levelSegment.style.width = '100%';
+        progressIndicator.appendChild(levelSegment);
+    }
 }
 
 // How to Play Popup
@@ -644,17 +690,12 @@ document.addEventListener('mousemove', (e) => {
     }
 });
 
-// Next level button handler
-if (nextLevelBtn) {
-    nextLevelBtn.addEventListener('click', () => {
-        sounds.button_click.play().catch(e => console.log('Audio play failed:', e));
-        advanceToNextLevel();
-    });
-}
-
 restartBtn.addEventListener('click', () => {
     sounds.button_click.play().catch(e => console.log('Audio play failed:', e));
     currentRound = 1;
+    // Keep currentLevel as is on restart, or reset to 1 if that's desired behavior.
+    // Assuming user wants to restart current game, not entire progress.
+    // If entire progress reset is wanted, add currentLevel = 1;
     lastGeneratedNumber = null;
     initializeLevel();
     isGameOver = false;
@@ -680,117 +721,6 @@ restartBtn.addEventListener('click', () => {
 setTimeout(() => {
     showSpeechBubble("Welcome to Sequenced! Click the ? if you need help.", 6000);
 }, 2000);
-
-// Audio test functionality
-const audioTestBtn = document.getElementById('audio-test-btn');
-if (audioTestBtn) {
-    audioTestBtn.addEventListener('click', () => {
-        console.log('Audio test button clicked');
-        
-        // Diagnostic information
-        console.log('Audio context state:', window.soundSystem?.audioContext?.state);
-        console.log('Audio enabled:', window.soundSystem?.audioEnabled);
-        
-        // Test all sound types
-        sounds.button_click.play();
-        setTimeout(() => sounds.success.play(), 200);
-        setTimeout(() => sounds.error.play(), 400);
-        setTimeout(() => sounds.place.play(), 600);
-        
-        // Show feedback
-        audioTestBtn.textContent = '✅ Audio Tested!';
-        audioTestBtn.style.background = '#51cf66';
-        setTimeout(() => {
-            audioTestBtn.textContent = '🔊 Test Audio';
-            audioTestBtn.style.background = '#ff6b6b';
-        }, 2000);
-    });
-}
-
-// Audio toggle functionality
-const audioToggleBtn = document.getElementById('audio-toggle-btn');
-const audioStatus = document.getElementById('audio-status');
-
-if (audioToggleBtn) {
-    let audioEnabled = true;
-    
-    audioToggleBtn.addEventListener('click', () => {
-        audioEnabled = !audioEnabled;
-        
-        if (audioEnabled) {
-            audioToggleBtn.textContent = '🔊 Audio ON';
-            audioToggleBtn.style.background = '#51cf66';
-            // Re-enable audio system
-            if (window.soundSystem) {
-                window.soundSystem.enable();
-            }
-        } else {
-            audioToggleBtn.textContent = '🔇 Audio OFF';
-            audioToggleBtn.style.background = '#ff6b6b';
-            // Disable audio system
-            if (window.soundSystem) {
-                window.soundSystem.disable();
-            }
-        }
-        
-        // Play a test sound to confirm
-        if (audioEnabled) {
-            sounds.button_click.play();
-        }
-    });
-}
-
-// Update audio status
-function updateAudioStatus() {
-    if (audioStatus) {
-        if (window.soundSystem?.audioContext?.state === 'running') {
-            audioStatus.textContent = 'Audio: Working ✅';
-            audioStatus.style.background = '#51cf66';
-        } else if (window.soundSystem?.audioContext?.state === 'suspended') {
-            audioStatus.textContent = 'Audio: Suspended ⏸️';
-            audioStatus.style.background = '#ffa500';
-        } else if (window.soundSystem?.fallbackAudio) {
-            audioStatus.textContent = 'Audio: Fallback 🔄';
-            audioStatus.style.background = '#ffa500';
-        } else {
-            audioStatus.textContent = 'Audio: Failed ❌';
-            audioStatus.style.background = '#ff6b6b';
-        }
-    }
-}
-
-// Update status periodically
-setInterval(updateAudioStatus, 1000);
-updateAudioStatus();
-
-// Background music toggle functionality
-const musicToggleBtn = document.getElementById('music-toggle-btn');
-if (musicToggleBtn) {
-    let musicEnabled = true;
-    
-    musicToggleBtn.addEventListener('click', () => {
-        musicEnabled = !musicEnabled;
-        
-        if (musicEnabled) {
-            musicToggleBtn.textContent = '🎵 Music ON';
-            musicToggleBtn.style.background = '#8b5cf6';
-            // Start background music
-            if (window.soundSystem) {
-                window.soundSystem.toggleBackgroundMusic();
-            }
-        } else {
-            musicToggleBtn.textContent = '🔇 Music OFF';
-            musicToggleBtn.style.background = '#6b7280';
-            // Stop background music
-            if (window.soundSystem) {
-                window.soundSystem.toggleBackgroundMusic();
-            }
-        }
-        
-        // Play a test sound to confirm
-        sounds.button_click.play();
-    });
-}
 
 // Add loading screen hide logic here
 document.addEventListener('DOMContentLoaded', () => {
@@ -831,8 +761,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadingScreen.style.display = 'none';
                 // Remove the mousemove listener for loading eyes once it's gone
                 document.removeEventListener('mousemove', loadingEyesMoveListener);
-                // Play a startup sound when game begins
-                sounds.success.play().catch(e => console.log('Audio play failed:', e));
             }, { once: true }); // Use { once: true } to remove the listener after it fires
         }, 2500); // Display loading screen for 2.5 seconds
     }

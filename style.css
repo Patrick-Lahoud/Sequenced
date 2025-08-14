@@ -606,108 +606,61 @@ body::after {
 
 .progress-indicator {
     position: absolute;
-    left: -40px; 
+    left: -60px; /* Shifted further left to accommodate extra length */
     top: 50%;
     transform: translateY(-50%);
-    width: 15px;
-    height: 60%; /* Fixed height for the bar container */
+    width: 20px; /* Slightly thicker */
+    height: 700px; /* Made 40% longer */
     background: rgba(0, 0, 0, 0.5);
     border-radius: 10px;
     border: 2px solid var(--primary-border);
     display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    padding: 10px 0;
+    flex-direction: column-reverse; /* Stacks segments from bottom (level 1) to top */
+    justify-content: flex-start; /* Ensures segments start from the bottom */
+    padding: 2px; /* Small padding inside the bar */
     overflow: hidden;
-    transition: border-color 0.5s ease-in-out, box-shadow 0.5s ease-in-out; /* Add transition for mode changes */
+    transition: border-color 0.5s ease-in-out, box-shadow 0.5s ease-in-out; 
+    z-index: 1; 
 }
 
+/* Remove the old ::after pseudo-element from progress-indicator as it's replaced by dynamic elements */
 .progress-indicator::after {
-    content: '';
+    content: none; 
+}
+
+/* Styles for individual level segments within the progress indicator */
+.level-segment {
+    width: 100%;
+    /* Height will be set dynamically in JS */
+    border-radius: 5px;
+    margin-bottom: 2px; /* Small gap between segments */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    position: relative; /* For inner fill positioning */
+    overflow: hidden; /* Ensure fill doesn't overflow */
+    transition: background 0.5s ease-in-out, border 0.5s ease-in-out, box-shadow 0.5s ease-in-out;
+}
+
+/* Style for the 'liquid' fill within the current level's segment */
+.current-level-fill {
     position: absolute;
     bottom: 0;
     left: 0;
     width: 100%;
-    /* Use --liquid-height for both normal and heated mode, managed by JS */
-    height: var(--liquid-height, 0%); 
+    /* Height set dynamically by JS --round-progress-height */
     box-shadow: 
         0 0 10px var(--primary-glow),
         0 0 20px var(--primary-glow) inset;
-    transition: height 0.1s linear, background 0.5s ease-in-out, box-shadow 0.5s ease-in-out; /* Faster height transition for lava */
+    transition: height 0.1s linear, background 0.5s ease-in-out, box-shadow 0.5s ease-in-out; 
     background-size: 100% 10px;
     background-repeat: repeat-y;
-    animation: silverFlow 3s linear infinite; /* Default animation */
-    border-radius: 8px;
-
-    /* Default (Normal Mode) gradient */
-    background: linear-gradient(to bottom, 
-        hsla(var(--level-hue), 60%, 70%, 0.9), 
-        hsla(var(--level-hue), 50%, 65%, 0.7), 
-        hsla(var(--level-hue), 70%, 75%, 0.8),
-        hsla(var(--level-hue), 60%, 70%, 0.9));
-}
-
-/* Heated Mode Specific Styles */
-.progress-indicator.heated-mode {
-    border-color: #ff8800; /* Orange border for lava */
-    box-shadow: 0 0 20px rgba(255, 120, 0, 0.6);
-}
-
-.progress-indicator.heated-mode::after {
-    /* Lava gradient colors */
-    background: linear-gradient(to bottom, 
-        #ff0000, /* Top: Bright Red */
-        #ff4500, /* Orange-Red */
-        #ff8c00, /* Dark Orange */
-        #ffd700); /* Gold */
-    box-shadow: 
-        0 0 15px #ff4500,
-        0 0 30px #ff0000 inset;
-    animation: lavaFlow 1.5s linear infinite; /* Faster, more agitated flow for lava */
-}
-
-/* New: Pause lava flow animation when game is over */
-body.game-over .progress-indicator.heated-mode::after {
-    animation-play-state: paused;
-    background-position: 0 15px; /* Set to end state of animation to prevent jump */
-}
-
-/* Lava Warning States */
-.progress-indicator.heated-mode.warning {
-    border-color: #ffdd00; /* Yellowish warning */
-    box-shadow: 0 0 25px rgba(255, 221, 0, 0.8);
-    animation: lavaWarningPulse 0.8s infinite alternate; /* Pulsing warning */
-}
-
-.progress-indicator.heated-mode.critical {
-    border-color: #ff0000; /* Red critical */
-    box-shadow: 0 0 35px rgba(255, 0, 0, 1), 0 0 15px rgba(255, 255, 0, 0.5) inset;
-    animation: lavaCriticalPulse 0.5s infinite alternate; /* Rapid pulsing critical */
-}
-
-@keyframes lavaFlow {
-    0% { background-position: 0 0; }
-    100% { background-position: 0 15px; } /* Adjust for faster/more chaotic flow */
-}
-
-@keyframes lavaWarningPulse {
-    0% { opacity: 1; }
-    100% { opacity: 0.8; }
-}
-
-@keyframes lavaCriticalPulse {
-    0% { opacity: 1; transform: scale(1); }
-    100% { opacity: 0.9; transform: scale(1.02); }
+    animation: silverFlow 3s linear infinite; 
+    border-radius: inherit; /* Inherit border radius from .level-segment */
 }
 
 /* Original silverFlow animation (for normal mode) */
 @keyframes silverFlow {
     0% { background-position: 0 0; }
     100% { background-position: 0 10px; }
-}
-
-.level-marker {
-    display: none;
 }
 
 :root {
@@ -1124,96 +1077,4 @@ body.game-over .progress-indicator.heated-mode::after {
 @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
-}
-
-/* Mode Switch Styles */
-.mode-switch-container {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    z-index: 100;
-    padding: 10px;
-    background: rgba(10, 10, 10, 0.8);
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 0 15px rgba(0,200,255,0.3); /* Default blue glow */
-    transition: box-shadow 0.5s ease;
-}
-
-/* If body has heated-mode-active, change switch container glow */
-body.heated-mode-active .mode-switch-container {
-    box-shadow: 0 0 15px rgba(255,100,0,0.5); /* Orange glow for heated mode */
-}
-
-.switch {
-    position: relative;
-    display: inline-block;
-    width: 60px;
-    height: 34px;
-}
-
-.switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #333; /* Off state background */
-    -webkit-transition: .4s;
-    transition: .4s;
-    border: 2px solid #555;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
-}
-
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 26px;
-    width: 26px;
-    left: 4px;
-    bottom: 4px;
-    background-color: #888; /* Knob color off */
-    -webkit-transition: .4s;
-    transition: .4s;
-    box-shadow: 0 0 10px rgba(0,0,0,0.3);
-}
-
-input:checked + .slider {
-    background-color: #ff8c00; /* On state background for lava-like */
-    border-color: #ff4500;
-    box-shadow: inset 0 0 15px rgba(255,120,0,0.5);
-}
-
-input:checked + .slider:before {
-    -webkit-transform: translateX(26px);
-    -ms-transform: translateX(26px);
-    transform: translateX(26px);
-    background-color: #fff; /* Knob color on */
-    box-shadow: 0 0 15px rgba(255,255,255,0.7);
-}
-
-.slider.round {
-    border-radius: 34px;
-}
-
-.slider.round:before {
-    border-radius: 50%;
-}
-
-.switch-label {
-    color: #cccccc;
-    font-size: 0.9em;
-    text-shadow: 0 0 5px rgba(200,200,200,0.3);
-    white-space: nowrap;
 }
