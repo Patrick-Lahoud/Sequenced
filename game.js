@@ -1,6 +1,6 @@
 // Moved all JavaScript from HTML to this file
 import { CONFIG } from './config.js';
-import { sounds } from './sounds.js';
+import { sounds, applySettings as applySoundSettings } from './sounds.js';
 
 let currentRound = 1;
 let totalRounds;
@@ -30,6 +30,115 @@ const mouthEl = document.querySelector('.mouth'); // Get mouth element
 const leftEyeEl = document.querySelector('.left-eye'); // Get left eye element
 const rightEyeEl = document.querySelector('.right-eye'); // Get right eye element
 
+// Settings elements
+const settingsBtn = document.getElementById('settings-btn');
+const settingsPopup = document.getElementById('settings-popup');
+const closeSettingsPopupBtn = document.getElementById('close-settings-popup');
+const sfxVolumeSlider = document.getElementById('sfx-volume');
+const highContrastToggle = document.getElementById('high-contrast-toggle');
+const reduceMotionToggle = document.getElementById('reduce-motion-toggle');
+const resetProgressBtn = document.getElementById('reset-progress-btn');
+const settingsTabs = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
+
+// --- Settings Logic ---
+const defaultSettings = {
+    sfxVolume: 1.0,
+    highContrast: false,
+    reduceMotion: false
+};
+
+let gameSettings = { ...defaultSettings };
+
+function saveSettings() {
+    localStorage.setItem('sequenced-settings', JSON.stringify(gameSettings));
+}
+
+function loadSettings() {
+    const saved = localStorage.getItem('sequenced-settings');
+    if (saved) {
+        gameSettings = { ...defaultSettings, ...JSON.parse(saved) };
+    }
+    applySettings();
+    updateSettingsUI();
+}
+
+function applySettings() {
+    // Sound Volume
+    applySoundSettings(gameSettings);
+    
+    // High Contrast
+    document.body.classList.toggle('high-contrast', gameSettings.highContrast);
+
+    // Reduce Motion
+    document.body.classList.toggle('reduce-motion', gameSettings.reduceMotion);
+}
+
+function updateSettingsUI() {
+    if (sfxVolumeSlider) sfxVolumeSlider.value = gameSettings.sfxVolume;
+    if (highContrastToggle) highContrastToggle.checked = gameSettings.highContrast;
+    if (reduceMotionToggle) reduceMotionToggle.checked = gameSettings.reduceMotion;
+}
+
+// Settings Event Listeners
+if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+        sounds.button_click.play().catch(e => console.log('Audio play failed:', e));
+        if (settingsPopup) settingsPopup.style.display = 'flex';
+    });
+}
+if (closeSettingsPopupBtn) {
+    closeSettingsPopupBtn.addEventListener('click', () => {
+        sounds.button_click.play().catch(e => console.log('Audio play failed:', e));
+        if (settingsPopup) settingsPopup.style.display = 'none';
+    });
+}
+if (sfxVolumeSlider) {
+    sfxVolumeSlider.addEventListener('input', (e) => {
+        gameSettings.sfxVolume = parseFloat(e.target.value);
+        applySettings(); // Apply volume change immediately
+    });
+    sfxVolumeSlider.addEventListener('change', saveSettings); // Save when user releases slider
+}
+if (highContrastToggle) {
+    highContrastToggle.addEventListener('change', (e) => {
+        gameSettings.highContrast = e.target.checked;
+        applySettings();
+        saveSettings();
+    });
+}
+if (reduceMotionToggle) {
+    reduceMotionToggle.addEventListener('change', (e) => {
+        gameSettings.reduceMotion = e.target.checked;
+        applySettings();
+        saveSettings();
+    });
+}
+if (resetProgressBtn) {
+    resetProgressBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to reset all your progress? This cannot be undone.')) {
+            sounds.game_over.play().catch(e => console.log('Audio play failed:', e));
+            localStorage.removeItem('sequenced-progress');
+            location.reload(); // Easiest way to reset everything
+        }
+    });
+}
+
+// Tab functionality
+settingsTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        // Deactivate all
+        settingsTabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+
+        // Activate clicked tab
+        tab.classList.add('active');
+        const tabName = tab.dataset.tab;
+        document.getElementById(`${tabName}-settings`).classList.add('active');
+    });
+});
+// --- End Settings Logic ---
+
 // Null checks for critical elements
 if (!sequenceContainer || !currentRoundEl || !newNumberBoxEl || !messagesEl || 
     !currentLevelEl || !numberOddsEl || !nextLevelBtn || !restartBtn ||
@@ -41,6 +150,25 @@ if (!sequenceContainer || !currentRoundEl || !newNumberBoxEl || !messagesEl ||
 let currentLevel = 1;
 let currentLevelConfig;
 let mouthStateTimerId = null; // Timer for random mouth switching
+
+// Function to save and load game progress
+function saveProgress() {
+    const progress = {
+        level: currentLevel,
+        fails: totalFails,
+    };
+    localStorage.setItem('sequenced-progress', JSON.stringify(progress));
+}
+
+function loadProgress() {
+    const saved = localStorage.getItem('sequenced-progress');
+    if (saved) {
+        const progress = JSON.parse(saved);
+        currentLevel = progress.level || 1;
+        totalFails = progress.fails || 0;
+        if(totalFailsEl) totalFailsEl.textContent = `Fails: ${totalFails}`;
+    }
+}
 
 // Function to manage mouth shape by adding/removing specific classes
 function setMouthShapeClass(isCircle) {
@@ -221,6 +349,31 @@ function getGameOverDialogue() {
     }
 }
 
+// New: Dialogue for mocking deaths
+function getDeathMockDialogue(fails) {
+    const messages = [
+        `That's your ${fails}th fail. Are you even trying?`,
+        `Another one bites the dust. That makes ${fails}. Impressive...ly bad.`,
+        `You've failed ${fails} times now. Maybe this game isn't for you.`,
+        `Look at that, ${fails} fails and counting. Don't worry, practice makes perfect... for me laughing.`,
+        `Did you even learn from the last ${fails - 1} times?`
+    ];
+    return messages[Math.floor(Math.random() * messages.length)];
+}
+
+// New: Dialogue for mocking resets
+function getResetDialogue() {
+    const messages = [
+        "Giving up already? Pathetic.",
+        "Can't handle the heat? Just reset then.",
+        "Oh, a restart? Didn't see that coming. (Sarcasm)",
+        "Running away from your problems, I see.",
+        "Need a fresh start? Or just a break from failing?",
+        "That's one way to avoid a loss, I guess."
+    ];
+    return messages[Math.floor(Math.random() * messages.length)];
+}
+
 function getLevelCompleteDialogue() {
     if (currentLevel === 1) {
         return "Nice! But it gets harder...";
@@ -233,6 +386,29 @@ function getLevelCompleteDialogue() {
     } else {
         return "You might actually beat this game.";
     }
+}
+
+// New helper function to check if a given sequence is sorted
+function isSequenceSorted(seq) {
+    const numbers = seq.filter(n => n !== null && n !== undefined);
+    for (let i = 1; i < numbers.length; i++) {
+        if (numbers[i - 1] > numbers[i]) return false;
+    }
+    return true;
+}
+
+// New helper function to check if a number has any valid placement
+function hasValidPlacement(number, seq) {
+    for (let i = 0; i < seq.length; i++) {
+        if (seq[i] === null) {
+            const tempSequence = [...seq];
+            tempSequence[i] = number;
+            if (isSequenceSorted(tempSequence)) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 function initializeLevel() {
@@ -287,6 +463,15 @@ function renderSequence() {
         }
     } else if (newNumberBoxEl) {
         newNumberBoxEl.textContent = '';
+    }
+    
+    // Check for impossible moves right after number generation
+    if (currentRound <= totalRounds) {
+        if (!hasValidPlacement(currentNumber, sequence)) {
+            // No valid moves, trigger a special game over
+            setTimeout(() => gameOver('impossible_move'), 100); // Timeout to allow number to render
+            // Render the board one last time before game over screen
+        }
     }
     
     updateProgressIndicator(); // Call after sequence is rendered to ensure progress is shown
@@ -415,6 +600,7 @@ function handleInsertion(position) {
 
     // Only render sequence if not level complete
     renderSequence();
+    saveProgress(); // Save progress after a successful round
     
     // Random chance to show dialogue during gameplay
     if (Math.random() < 0.3) {
@@ -436,15 +622,31 @@ function checkSorted() {
 function gameOver(reason) {
     isGameOver = true;
     totalFails++;
+    saveProgress(); // Save progress on game over
     if (totalFailsEl) totalFailsEl.textContent = `Fails: ${totalFails}`;
     document.body.classList.add('game-over'); // Add game-over class to body
     updateFaceState('sad', getHelpfulTip());
     
-    let messageText = 'Game Over! Wrong placement';
+    let messageText;
+    let speechBubbleText;
+    
+    if (reason === 'impossible_move') {
+        messageText = 'Game Over! No possible moves.';
+        speechBubbleText = "Ouch, bad luck. There was nowhere to put that one.";
+    } else { // Default 'wrong_placement'
+        messageText = 'Game Over! Wrong placement';
+        speechBubbleText = getGameOverDialogue();
+    }
     
     showMessage(messageText, 'error');
-    showSpeechBubble(getGameOverDialogue(), 5000);
+    showSpeechBubble(speechBubbleText, 5000);
     sounds.game_over.play().catch(e => console.log('Audio play failed:', e));
+    
+    // New: Mock player for every 5 deaths
+    if (totalFails % 5 === 0 && totalFails > 0) { // Check if it's a multiple of 5 and not the very first fail
+        setTimeout(() => showSpeechBubble(getDeathMockDialogue(totalFails), 5000), 2000); // Show after initial game over message
+    }
+
     if (sequenceContainer) {
         sequenceContainer.classList.add('shaking');
     }
@@ -455,6 +657,7 @@ function advanceToNextLevel() {
     currentLevel++;
     currentRound = 1;
     lastGeneratedNumber = null;
+    saveProgress(); // Save progress on advancing to next level
     initializeLevel();
     isGameOver = false; // Reset game over state for new level
     document.body.classList.remove('game-over'); // Remove game-over class from body
@@ -465,7 +668,7 @@ function advanceToNextLevel() {
     if (sequenceContainer) {
         sequenceContainer.classList.remove('shaking');
     }
-    // Ensure next level button remains hidden for auto advance. Restart button is always visible.
+    // Ensure next level button remains hidden for auto advance. Restart button is always visible via CSS.
     if (nextLevelBtn) nextLevelBtn.style.display = 'none'; 
     if (numberOddsEl) {
         numberOddsEl.classList.remove('hide-smooth');
@@ -598,7 +801,7 @@ function updateProgressIndicator() {
                 hsl(${levelHue}, 60%, 70%), 
                 hsl(${levelHue}, 50%, 65%), 
                 hsl(${levelHue}, 70%, 75%),
-                hsl(${levelHue}, 60%, 70%))`; // Use HSL colors
+                hsl(${levelHue}, 60%, 70%)`; // Use HSL colors
             currentFill.style.animation = 'silverFlow 3s linear infinite';
             currentFill.style.borderRadius = 'inherit'; // Inherit border radius from parent
 
@@ -660,6 +863,7 @@ function getNextTip() {
 }
 
 // Initialize face with appropriate tip
+loadProgress(); // Load progress before initializing
 initializeLevel();
 updateFaceState('thinking', getNextTip()); // 'thinking' state will now display the default straight mouth or randomly switch
 renderSequence();
@@ -692,6 +896,17 @@ document.addEventListener('mousemove', (e) => {
 
 restartBtn.addEventListener('click', () => {
     sounds.button_click.play().catch(e => console.log('Audio play failed:', e));
+    
+    // Increment total fails when the restart button is clicked
+    totalFails++;
+    saveProgress(); // Save the updated fails count
+    if (totalFailsEl) totalFailsEl.textContent = `Fails: ${totalFails}`;
+
+    // New: Mock player for using reset if past level 2
+    if (currentLevel > 2) {
+        showSpeechBubble(getResetDialogue(), 4000);
+    }
+
     currentRound = 1;
     // Keep currentLevel as is on restart, or reset to 1 if that's desired behavior.
     // Assuming user wants to restart current game, not entire progress.
@@ -724,6 +939,8 @@ setTimeout(() => {
 
 // Add loading screen hide logic here
 document.addEventListener('DOMContentLoaded', () => {
+    loadSettings(); // Load settings when the DOM is ready
+
     const loadingScreen = document.getElementById('loading-screen');
     const loadingFaceContainer = document.querySelector('.loading-face-container');
     const loadingLeftEye = document.querySelector('.loading-left-eye');

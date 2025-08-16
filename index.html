@@ -49,7 +49,72 @@
         <button id="restart-btn">Reset</button>
     </div>
     
+    <button id="settings-btn">⚙️</button>
     <button id="how-to-play-btn">?</button>
+
+    <div id="settings-popup">
+        <div class="popup-content">
+            <button id="close-settings-popup">X</button>
+            <h2>Settings</h2>
+            
+            <div class="settings-tabs">
+                <button class="tab-btn active" data-tab="general">General</button>
+                <button class="tab-btn" data-tab="accessibility">Accessibility</button>
+            </div>
+
+            <div class="settings-scroll-content">
+                <!-- General Settings Tab -->
+                <div id="general-settings" class="tab-content active">
+                    <div class="settings-section">
+                        <h3><span class="popup-icon">🔊</span> Sound</h3>
+                        <div class="setting-item">
+                            <label for="sfx-volume">Effects Volume</label>
+                            <div class="slider-container">
+                                <span>0</span>
+                                <input type="range" id="sfx-volume" min="0" max="1" step="0.05" value="1">
+                                <span>100</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3><span class="popup-icon">🔄</span> Game Data</h3>
+                        <div class="setting-item">
+                            <label>Reset Progress</label>
+                            <button id="reset-progress-btn">Reset All Progress</button>
+                        </div>
+                        <p class="setting-note">This will reset your current level back to 1 and your total fails to 0. This action cannot be undone.</p>
+                    </div>
+                </div>
+
+                <!-- Accessibility Settings Tab -->
+                <div id="accessibility-settings" class="tab-content">
+                    <div class="settings-section">
+                        <h3><span class="popup-icon">👁️</span> Visuals</h3>
+                        <div class="setting-item">
+                            <label for="high-contrast-toggle">High Contrast Mode</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="high-contrast-toggle">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                         <p class="setting-note">Increases text contrast and removes some glow effects for better readability.</p>
+                    </div>
+                    <div class="settings-section">
+                        <h3><span class="popup-icon">🏃‍♂️</span> Motion</h3>
+                        <div class="setting-item">
+                            <label for="reduce-motion-toggle">Reduce Motion</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="reduce-motion-toggle">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <p class="setting-note">Reduces pulsing, shaking, and other animations.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div id="how-to-play-popup">
         <div class="popup-content">
