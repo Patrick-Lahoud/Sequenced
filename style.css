@@ -52,6 +52,8 @@ body::after {
 }
 
 /* CRT glow filter - reduced intensity */
+/* Removed global filter to improve performance */
+/* 
 * {
     filter: 
         drop-shadow(0 0 1px rgba(0,150,255,0.1))
@@ -59,7 +61,7 @@ body::after {
         brightness(1.02)
         contrast(1.05);
 }
-
+*/
 @keyframes flow {
     0% { transform: translate(0%, 0%) rotate(45deg); }
     25% { transform: translate(-25%, 25%) rotate(45deg); }
@@ -75,29 +77,162 @@ body::after {
     left: 0;
     width: 100%;
     height: 100%;
-    background: #000; /* Solid black background for cinematic feel */
+    background: #000; /* Solid black for a cryptic feel */
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 2000; /* Ensure it's on top of everything */
+    z-index: 2000;
     opacity: 1;
-    transition: opacity 1s ease-out; /* Fade out effect */
+    transition: opacity 1s ease-out; /* Fade out for loading screen */
+    overflow: hidden; /* Hide overflowing glitch numbers */
 }
 
 #loading-screen.fade-out {
     opacity: 0;
-    pointer-events: none; /* Disable interactions after fading out */
+    pointer-events: none;
+}
+
+@keyframes fadeInLoading {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .loading-content {
     text-align: center;
-    transform: translateY(-20px); /* Slightly move up to look like it settles down */
-    animation: loading-appear 1.5s ease-out forwards;
+    position: relative;
 }
 
-@keyframes loading-appear {
-    0% { opacity: 0; transform: translateY(20px); }
-    100% { opacity: 1; transform: translateY(0); }
+.loading-title {
+    font-family: 'Space Grotesk', monospace;
+    font-size: 5rem;
+    font-weight: 700;
+    letter-spacing: 0.5em;
+    color: #e0e0e0;
+    text-transform: lowercase;
+    opacity: 0;
+    animation: title-fade 4s ease-in-out forwards;
+    text-shadow: 0 0 10px #e0e0e0, 0 0 20px #e0e0e0;
+}
+
+@keyframes title-fade {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.glitch-container {
+    position: relative;
+}
+
+.glitch-text {
+    font-family: 'Space Grotesk', monospace;
+    font-size: 5rem;
+    font-weight: 700;
+    letter-spacing: 0.5em;
+    color: #e0e0e0;
+    text-transform: lowercase;
+    display: flex; /* Use flex to align spans */
+}
+
+.glitch-text span {
+    display: inline-block;
+    opacity: 0;
+    animation: letter-flicker 3s forwards;
+    position: relative;
+}
+
+.glitch-text span::before {
+    content: '0'; /* Initial content */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    color: var(--primary-color);
+    text-shadow: 0 0 15px var(--primary-glow);
+    animation: glitch-numbers 0.5s steps(10) infinite;
+    opacity: 1;
+}
+
+/* Staggered animation delays for each letter */
+.glitch-text span:nth-child(1) { animation-delay: 0.2s; }
+.glitch-text span:nth-child(2) { animation-delay: 0.4s; }
+.glitch-text span:nth-child(3) { animation-delay: 0.6s; }
+.glitch-text span:nth-child(4) { animation-delay: 0.8s; }
+.glitch-text span:nth-child(5) { animation-delay: 1.0s; }
+.glitch-text span:nth-child(6) { animation-delay: 1.2s; }
+.glitch-text span:nth-child(7) { animation-delay: 1.4s; }
+.glitch-text span:nth-child(8) { animation-delay: 1.6s; }
+.glitch-text span:nth-child(9) { animation-delay: 1.8s; }
+
+/* Staggered delays for the number glitching */
+.glitch-text span:nth-child(1)::before { animation-delay: 0.1s; }
+.glitch-text span:nth-child(2)::before { animation-delay: 0.3s; }
+.glitch-text span:nth-child(3)::before { animation-delay: 0.2s; }
+.glitch-text span:nth-child(4)::before { animation-delay: 0.5s; }
+.glitch-text span:nth-child(5)::before { animation-delay: 0.4s; }
+.glitch-text span:nth-child(6)::before { animation-delay: 0.1s; }
+.glitch-text span:nth-child(7)::before { animation-delay: 0.6s; }
+.glitch-text span:nth-child(8)::before { animation-delay: 0.3s; }
+.glitch-text span:nth-child(9)::before { animation-delay: 0.2s; }
+
+@keyframes glitch-numbers {
+    0% { content: '1'; }
+    10% { content: '7'; }
+    20% { content: '3'; }
+    30% { content: '9'; }
+    40% { content: '5'; }
+    50% { content: '8'; }
+    60% { content: '2'; }
+    70% { content: '6'; }
+    80% { content: '4'; }
+    90% { content: '0'; }
+    100% { content: '1'; }
+}
+
+@keyframes letter-flicker {
+    0% { opacity: 0; transform: translateY(20px) scale(0.8); text-shadow: none; }
+    30% { opacity: 0; } /* Keep letter hidden while numbers glitch */
+    40% { 
+        opacity: 1; 
+        transform: translateY(0) scale(1); 
+        text-shadow: 0 0 15px #66ffff, 0 0 30px #66ffff;
+    }
+    40.1% {
+        /* Hide the number glitch pseudo-element */
+    }
+    45% { opacity: 0.6; transform: translateY(-5px) scale(1.05); }
+    50% { opacity: 1; transform: translateY(0) scale(1); }
+    80% { opacity: 1; text-shadow: 0 0 15px #66ffff, 0 0 30px #66ffff; }
+    100% { opacity: 1; text-shadow: 0 0 10px #e0e0e0, 0 0 20px #e0e0e0; }
+}
+
+/* Hide pseudo-element when letter appears */
+.glitch-text span {
+    animation-name: letter-flicker, hide-pseudo;
+    animation-duration: 3s, 3s;
+    animation-fill-mode: forwards, forwards;
+}
+
+@keyframes hide-pseudo {
+    0%, 40% {
+        --pseudo-opacity: 1;
+    }
+    40.1%, 100% {
+        --pseudo-opacity: 0;
+    }
+}
+
+.glitch-text span::before {
+    opacity: var(--pseudo-opacity, 1);
+}
+
+#glitch-numbers-container {
+    display: none;
+}
+
+.glitch-number {
+    display: none;
 }
 
 .loading-logo-container {
@@ -180,12 +315,12 @@ body::after {
 .loading-text::after {
     content: '';
     position: absolute;
-    bottom: -15px;
+    bottom: -10px;
     left: 50%;
     transform: translateX(-50%);
-    width: 120%;  
-    height: 3px;
-    background: linear-gradient(90deg, transparent, #66ffff, transparent);
+    width: 100%;  
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
     box-shadow: 0 0 20px rgba(102, 255, 255, 0.8);
 }
 
@@ -422,6 +557,10 @@ body::after {
     background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
 }
 
+#scaling-wrapper {
+    transition: transform 0.5s ease-in-out;
+}
+
 .game-container {
     background: rgba(10, 10, 10, 0.95);
     padding: 3rem;  
@@ -432,13 +571,89 @@ body::after {
         inset 0 0 50px rgba(20,20,20,0.1);  
     text-align: center;
     color: #cccccc;
-    transition: width 0.5s ease-in-out, height 0.7s ease-in-out, opacity 0.7s ease-in-out; /* Added opacity transition */
+    transition: width 0.5s ease-in-out, height 0.7s ease-in-out, opacity 0.7s ease-in-out, transform 0.5s ease-in-out; /* Added opacity and transform transition */
     position: relative;
     z-index: 1;
-    margin: -2rem auto;  
+    margin: 0; /* Changed from margin: -2rem auto; */
     padding-bottom: 5rem; 
-    transform: scale(0.8); 
     transform-origin: center center; 
+    visibility: hidden;
+}
+
+/* Glitch-in Animation */
+.glitch-in {
+    visibility: visible !important;
+    animation: glitch-in-base 2.5s forwards;
+}
+
+.glitch-in::before,
+.glitch-in::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #050505; /* Match body background */
+    opacity: 0.8;
+    pointer-events: none;
+    z-index: -1;
+    border-radius: 20px;
+}
+
+.glitch-in::before {
+    animation: glitch-effect-1 2.5s forwards;
+    filter: hue-rotate(90deg) contrast(1.2);
+}
+
+.glitch-in::after {
+    animation: glitch-effect-2 2.5s forwards;
+    filter: hue-rotate(-90deg) contrast(1.2);
+}
+
+@keyframes glitch-in-base {
+    0% {
+        opacity: 0;
+        transform: scale(0.9) skew(5deg);
+    }
+    20% {
+        opacity: 1;
+        transform: scale(1) skew(0deg);
+    }
+    80% {
+        opacity: 1;
+        transform: scale(1) skew(0deg);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) skew(0deg);
+    }
+}
+
+@keyframes glitch-effect-1 {
+    0% { transform: translate(0, 0); clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); }
+    5% { transform: translate(-10px, 5px); clip-path: polygon(0 15%, 100% 15%, 100% 20%, 0 20%); }
+    10% { transform: translate(10px, -5px); clip-path: polygon(0 80%, 100% 80%, 100% 85%, 0 85%); }
+    15% { transform: translate(-5px, 10px); clip-path: polygon(0 45%, 100% 45%, 100% 50%, 0 50%); }
+    20% { transform: translate(5px, -10px); clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); }
+    30% { transform: translate(-8px, 4px); clip-path: polygon(0 50%, 100% 50%, 100% 55%, 0 55%); }
+    40% { transform: translate(8px, -4px); clip-path: polygon(0 10%, 100% 10%, 100% 12%, 0 12%); }
+    50% { transform: translate(0, 0); clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); }
+    80% { transform: translate(0, 0); clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); opacity: 1; }
+    100% { transform: translate(0, 0); opacity: 0; }
+}
+
+@keyframes glitch-effect-2 {
+    0% { transform: translate(0, 0); clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); }
+    7% { transform: translate(12px, -6px); clip-path: polygon(0 30%, 100% 30%, 100% 33%, 0 33%); }
+    14% { transform: translate(-12px, 6px); clip-path: polygon(0 90%, 100% 90%, 100% 95%, 0 95%); }
+    21% { transform: translate(6px, -12px); clip-path: polygon(0 60%, 100% 60%, 100% 62%, 0 62%); }
+    28% { transform: translate(-6px, 12px); clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); }
+    40% { transform: translate(10px, -5px); clip-path: polygon(0 70%, 100% 70%, 100% 72%, 0 72%); }
+    50% { transform: translate(-10px, 5px); clip-path: polygon(0 25%, 100% 25%, 100% 27%, 0 27%); }
+    60% { transform: translate(0, 0); clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); }
+    80% { transform: translate(0, 0); clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); opacity: 1; }
+    100% { transform: translate(0, 0); opacity: 0; }
 }
 
 /* New class for fading the game container */
@@ -506,7 +721,7 @@ body::after {
         0 0 15px var(--primary-text-shadow),
         0 0 30px hsla(var(--level-hue), 50%, 50%, 0.4);
     border-radius: 12px;  
-    animation: pulse 2s ease-in-out infinite;
+    /* animation: pulse 2s ease-in-out infinite;  Disabled for performance */
     box-shadow: 
         0 0 20px hsla(var(--level-hue), 50%, 50%, 0.4),
         inset 0 0 10px rgba(50,50,50,0.2);
@@ -537,7 +752,7 @@ body::after {
     position: relative;
     border: 2px solid #f0f0f0;
     border-radius: 10px;
-    animation: container-glow 2s ease-in-out infinite;
+    /* animation: container-glow 2s ease-in-out infinite; Disabled for performance */
     width: fit-content;
     background: rgba(20,20,20,0.2);
 }
@@ -653,7 +868,7 @@ body::after {
     transition: height 0.1s linear, background 0.5s ease-in-out, box-shadow 0.5s ease-in-out; 
     background-size: 100% 10px;
     background-repeat: repeat-y;
-    animation: silverFlow 3s linear infinite; 
+    /* animation: silverFlow 3s linear infinite; Disabled for performance */
     border-radius: inherit; /* Inherit border radius from .level-segment */
 }
 
@@ -683,6 +898,15 @@ body::after {
         0 0 20px hsla(var(--level-hue), 50%, 50%, 0.4);
 }
 
+.button-container {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    height: 50px; /* Set a fixed height to prevent layout shifts */
+    align-items: center;
+}
+
 #next-level-btn {
     padding: 15px 30px;
     background: linear-gradient(45deg, #00ff00, #00aa00);
@@ -695,7 +919,7 @@ body::after {
     text-transform: uppercase;
     transition: all 0.3s;
     font-family: 'Space Grotesk', sans-serif;
-    margin: 10px;
+    margin: 0;
     display: none; /* Keeps this button hidden by default */
 }
 
@@ -720,6 +944,7 @@ body::after {
     animation: restart-glow 2s infinite;
     text-shadow: 0 0 10px var(--primary-glow);
     display: inline-block; /* Ensure this button is always visible */
+    margin: 0;
 }
 
 #restart-btn:hover {

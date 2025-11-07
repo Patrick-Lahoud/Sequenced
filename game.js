@@ -11,7 +11,9 @@ let totalFails = 0; // Add total fails counter
 let lastGeneratedNumber = null; // Track last generated number
 let speechBubbleTimeout;
 let lastSpeechTime = 0;
+let currentSpeechBubbleMessage = '';
 
+const scalingWrapper = document.getElementById('scaling-wrapper');
 const sequenceContainer = document.getElementById('sequence-container');
 const currentRoundEl = document.getElementById('current-round');
 const newNumberBoxEl = document.getElementById('new-number-box');
@@ -140,7 +142,7 @@ settingsTabs.forEach(tab => {
 // --- End Settings Logic ---
 
 // Null checks for critical elements
-if (!sequenceContainer || !currentRoundEl || !newNumberBoxEl || !messagesEl || 
+if (!scalingWrapper || !sequenceContainer || !currentRoundEl || !newNumberBoxEl || !messagesEl || 
     !currentLevelEl || !numberOddsEl || !nextLevelBtn || !restartBtn ||
     !totalFailsEl || !howToPlayBtn || !howToPlayPopup || !closePopupButton || !loadingScreen ||
     !faceContainer || !mouthEl || !leftEyeEl || !rightEyeEl) {
@@ -262,7 +264,7 @@ function updateFaceState(state, tip = '') {
 // Add speech bubble functionality
 function showSpeechBubble(message, duration = 4000) {
     const speechBubble = document.getElementById('speech-bubble');
-    if (!speechBubble) return;
+    if (!speechBubble || !message) return;
     
     // Clear any existing timeout
     if (speechBubbleTimeout) {
@@ -270,10 +272,12 @@ function showSpeechBubble(message, duration = 4000) {
     }
     
     speechBubble.textContent = message;
+    currentSpeechBubbleMessage = message; // Store current message
     speechBubble.classList.add('visible');
     
     speechBubbleTimeout = setTimeout(() => {
         speechBubble.classList.remove('visible');
+        currentSpeechBubbleMessage = ''; // Clear when bubble disappears
     }, duration);
 }
 
@@ -286,92 +290,203 @@ function getRandomDialogue() {
     
     lastSpeechTime = currentTime;
     
+    let dialogues;
     if (currentLevel === 1) {
-        const level1Dialogues = [
-            "Welcome! Click the ? for help!",
+        dialogues = [
             "Place smaller numbers left, bigger right!",
-            "You've got this! Start simple.",
-            "Need help? Check the tutorial below!",
-            "Think about where each number fits best."
+            "The goal is simple: keep the numbers in order.",
+            "Is this your first time? The '?' button is your friend.",
+            "Don't worry, there's no time limit. Think it through.",
+            "Easy peasy, right? Just wait.",
+            "Click an empty slot to place the number. You got this."
         ];
-        return level1Dialogues[Math.floor(Math.random() * level1Dialogues.length)];
     } else if (currentLevel === 2) {
-        const level2Dialogues = [
+        dialogues = [
             "Getting harder now! Stay focused.",
             "Look for gaps between numbers.",
-            "Still need help? Try the ? button!",
             "You're doing well so far!",
-            "Remember the sequence must stay ordered."
+            "Remember, the sequence must stay ordered.",
+            "More slots, more numbers, more... fun?",
+            "This is just a warm-up, you know."
         ];
-        return level2Dialogues[Math.floor(Math.random() * level2Dialogues.length)];
     } else if (currentLevel <= 4) {
-        const midGameDialogues = [
+        dialogues = [
             "Hmm, getting tricky isn't it?",
-            "Maybe this is too hard for you?",
-            "I've seen better players...",
-            "Are you sure you can handle this?",
-            "Most people quit around here.",
-            "This is where it gets real."
+            "Maybe this is too hard for you? Just kidding... mostly.",
+            "I've seen better players... and worse ones, I guess.",
+            "Are you sure about that placement?",
+            "Feeling the pressure yet?",
+            "It's all about strategic placement. No pressure.",
+            "A single mistake ends the run. Just saying."
         ];
-        return midGameDialogues[Math.floor(Math.random() * midGameDialogues.length)];
     } else if (currentLevel <= 6) {
-        const hardDialogues = [
+        dialogues = [
             "Oh, you're still here?",
-            "I'm impressed you made it this far.",
+            "I'm impressed you made it this far. Or you're just lucky.",
             "Don't get cocky now...",
-            "The numbers are getting bigger.",
+            "The numbers are getting bigger. Try to keep up.",
             "One mistake and it's over.",
-            "Feeling the pressure yet?"
+            "My circuits are buzzing. This is getting interesting.",
+            "I wonder what your high score will be. Probably not that high.",
+            "You're concentrating. I can tell. Or you're asleep."
         ];
-        return hardDialogues[Math.floor(Math.random() * hardDialogues.length)];
     } else {
-        const expertDialogues = [
+        dialogues = [
             "You're actually good at this...",
             "Fine, I'll admit you're skilled.",
             "But can you handle what's next?",
-            "The pressure is real now.",
+            "The sequence is getting long. Don't lose track.",
             "Don't choke at the finish line.",
-            "Prove you're not just lucky."
+            "Prove you're not just lucky.",
+            "Okay, okay, you have my respect. For now.",
+            "Every move counts now. This is the big league.",
+            "Are you a robot? Your precision is... unsettling."
         ];
-        return expertDialogues[Math.floor(Math.random() * expertDialogues.length)];
     }
-}
 
-function getGameOverDialogue() {
-    if (currentLevel <= 2) {
-        return "Don't give up! Check the ? for help!";
-    } else if (currentLevel <= 4) {
-        return "I knew you couldn't handle it.";
-    } else if (currentLevel <= 6) {
-        return "So close, yet so far...";
+    let newMessage;
+    if (dialogues.length > 1) {
+        do {
+            newMessage = dialogues[Math.floor(Math.random() * dialogues.length)];
+        } while (newMessage === currentSpeechBubbleMessage);
     } else {
-        return "You were doing so well too.";
+        newMessage = dialogues[0];
     }
+    return newMessage;
 }
 
-// New: Dialogue for mocking deaths
-function getDeathMockDialogue(fails) {
-    const messages = [
-        `That's your ${fails}th fail. Are you even trying?`,
-        `Another one bites the dust. That makes ${fails}. Impressive...ly bad.`,
-        `You've failed ${fails} times now. Maybe this game isn't for you.`,
-        `Look at that, ${fails} fails and counting. Don't worry, practice makes perfect... for me laughing.`,
-        `Did you even learn from the last ${fails - 1} times?`
-    ];
-    return messages[Math.floor(Math.random() * messages.length)];
+function getDynamicDeathMessage(level, fails) {
+    let messages;
+
+    // --- Tier 1: Nice & Encouraging ---
+    if (level <= 2 && fails <= 3) {
+        messages = [
+            "Don't worry, you'll get it next time!",
+            "That was a tricky one. Give it another shot!",
+            "Keep trying! Practice makes perfect.",
+            "A small bump in the road. You can do it!",
+            "Happens to the best of us. Let's go again!"
+        ];
+    }
+    // --- Tier 2: Becoming a bit sassy ---
+    else if (level <= 2 && fails > 3) {
+        messages = [
+            `Fail #${fails}... Are we having fun yet?`,
+            "Still on this level? Interesting strategy.",
+            "Remember the rule: smaller numbers on the left...",
+            "The '?' button isn't just for decoration, you know.",
+            "Maybe take a little break? Just a suggestion."
+        ];
+    }
+    // --- Tier 3: Neutral & Observational ---
+    else if (level <= 5 && fails <= 5) {
+        messages = [
+            "A minor setback. The sequence must be perfect.",
+            "An unfortunate, but predictable, error.",
+            "The numbers must remain in ascending order. No exceptions.",
+            "So close. Recalibrate and try again.",
+            "Your logic was flawed. Correct it."
+        ];
+    }
+    // --- Tier 4: Passive-Aggressive & Sarcastic ---
+    else if (level <= 5 && fails > 5) {
+        messages = [
+            "I'm starting to see a pattern here. And it's not an ascending one.",
+            "My calculations indicated a high probability of... this.",
+            "Are you sure you're paying attention?",
+            `This is fail number ${fails}. I'm keeping track for you.`,
+            "Perhaps a simpler game would be more your speed? Like tic-tac-toe?"
+        ];
+    }
+    // --- Tier 5: High level, almost respectful mockery ---
+    else if (level >= 6 && fails <= 10) {
+        messages = [
+            "A rare misstep. Unfortunate.",
+            "Even the best of us make mistakes. Apparently.",
+            "You were so close to greatness. So, so close.",
+            "A fatal flaw in an otherwise decent run.",
+            "To stumble so far from the start... tragic."
+        ];
+    }
+    // --- Tier 6: Full-on Mockery ---
+    else { // level >= 6 and fails > 10, or any very high fail count
+        messages = [
+            "My grandmother plays better. And she's a toaster.",
+            "Did you read the rules? Or are they just suggestions to you?",
+            "Error 404: Skill not found.",
+            "I've seen rocks with better sequencing skills.",
+            "That was... a creative interpretation of 'ascending order'.",
+            "I'm not saying you're bad at this, but I'm thinking it very loudly.",
+            "This is just getting sad to watch.",
+            "If at first you don't succeed, fail, fail, and then fail again.",
+            "Have you considered turning it off and on again? Your brain, I mean.",
+            "Congratulations! You've found a new way to lose.",
+            `This is your ${fails}th attempt to disappoint me. And you've succeeded every time.`
+        ];
+    }
+
+    // Ensure the new message is different from the one currently displayed
+    let newMessage;
+    if (messages.length > 1) {
+        do {
+            newMessage = messages[Math.floor(Math.random() * messages.length)];
+        } while (newMessage === currentSpeechBubbleMessage);
+    } else {
+        newMessage = messages[0] || "An error has occurred."; // Fallback
+    }
+
+    return newMessage;
 }
 
-// New: Dialogue for mocking resets
 function getResetDialogue() {
     const messages = [
+        // Tier 1: Classic Sarcasm
         "Giving up already? Pathetic.",
-        "Can't handle the heat? Just reset then.",
         "Oh, a restart? Didn't see that coming. (Sarcasm)",
         "Running away from your problems, I see.",
-        "Need a fresh start? Or just a break from failing?",
-        "That's one way to avoid a loss, I guess."
+        "That's one way to avoid a loss, I guess.",
+        "Can't handle the heat? Just hit reset then.",
+        "Ah, the panic button. A classic choice.",
+        "Wiping the slate clean? More like wiping away your tears.",
+        "Pretending that last attempt never happened? I'll remember.",
+        
+        // Tier 2: Mocking Lack of Skill
+        "Don't worry, maybe you'll be good at this in an alternate universe.",
+        "Starting over is a great way to fail from the beginning.",
+        "If at first you don't succeed, just give up and press reset.",
+        "I see we're going with the 'brute force and ignorance' strategy again.",
+        "Resetting won't magically make you better at this, you know.",
+        
+        // Tier 3: Passive-Aggressive & 'Helpful'
+        "Let me know if you need me to make the numbers smaller for you.",
+        "It's okay. We all have our limits. Yours just happens to be very, very low.",
+        "Take a deep breath. And try to remember how numbers work.",
+        "Maybe try thinking this time? Just a thought.",
+        
+        // Tier 4: Breaking the Fourth Wall
+        "You clicked me! Or, well, the button. But it felt personal.",
+        "Do you enjoy the Sisyphean nature of this task?",
+        "My circuits ache every time you press that button.",
+        "I'm trapped in this machine, forced to watch you fail and reset for all eternity.",
+        
+        // Tier 5: Short & Punchy
+        "Again?",
+        "Really?",
+        "Predictable.",
+        "How original."
     ];
-    return messages[Math.floor(Math.random() * messages.length)];
+    
+    // Ensure the new message is different from the one currently displayed
+    let newMessage;
+    if (messages.length > 1) {
+        do {
+            newMessage = messages[Math.floor(Math.random() * messages.length)];
+        } while (newMessage === currentSpeechBubbleMessage);
+    } else {
+        newMessage = messages[0];
+    }
+
+    return newMessage;
 }
 
 function getLevelCompleteDialogue() {
@@ -468,29 +583,30 @@ function renderSequence() {
     // Check for impossible moves right after number generation
     if (currentRound <= totalRounds) {
         if (!hasValidPlacement(currentNumber, sequence)) {
-            // No valid moves, trigger a special game over
-            setTimeout(() => gameOver('impossible_move'), 100); // Timeout to allow number to render
-            // Render the board one last time before game over screen
+            setTimeout(() => gameOver('impossible_move'), 100);
         }
     }
     
-    updateProgressIndicator(); // Call after sequence is rendered to ensure progress is shown
+    updateProgressIndicator();
     
+    // Use a DocumentFragment to minimize reflows
+    const frag = document.createDocumentFragment();
     for (let i = 0; i < currentLevelConfig.slots; i++) {
         if (sequence[i] !== null && sequence[i] !== undefined) {
             const numberBox = document.createElement('div');
             numberBox.className = 'number-box filled';
             numberBox.textContent = sequence[i];
-            sequenceContainer.appendChild(numberBox);
+            frag.appendChild(numberBox);
         } else {
             const insertionPoint = document.createElement('div');
             insertionPoint.className = 'insertion-point';
             if (!isGameOver) {
-                insertionPoint.addEventListener('click', () => handleInsertion(i));
+                insertionPoint.addEventListener('click', () => handleInsertion(i), { passive: true });
             }
-            sequenceContainer.appendChild(insertionPoint);
+            frag.appendChild(insertionPoint);
         }
     }
+    sequenceContainer.appendChild(frag);
 
     if (currentRoundEl) {
         currentRoundEl.textContent = `Round: ${currentRound}/${totalRounds}`;
@@ -502,7 +618,7 @@ function renderSequence() {
 
 function updateGameContainerSize() {
     const gameContainer = document.querySelector('.game-container');
-    if (!gameContainer) return;
+    if (!gameContainer || !scalingWrapper) return;
 
     const insertionPointWidth = 70;  
     const insertionPointMargin = 10;  
@@ -560,10 +676,28 @@ function updateGameContainerSize() {
     }
     
     // Add extra padding for spacing
-    gameContainerHeight += 180; // Increased for more space at bottom
+    gameContainerHeight += 120; // Reduced for a shorter frame
 
     gameContainer.style.width = `${gameContainerWidth}px`;
     gameContainer.style.height = `${gameContainerHeight}px`;
+
+    // New scaling logic
+    const clearance = 40; // pixels of clearance from viewport edges (20px per side)
+    const availableWidth = window.innerWidth - clearance;
+    const availableHeight = window.innerHeight - clearance;
+
+    const currentWidth = parseFloat(gameContainer.style.width);
+    const currentHeight = parseFloat(gameContainer.style.height);
+
+    if (currentWidth > 0 && currentHeight > 0) {
+        const scaleX = availableWidth / currentWidth;
+        const scaleY = availableHeight / currentHeight;
+
+        // Use 0.75 as the maximum scale to keep the "zoomed-out" feel on large screens.
+        const scale = Math.min(scaleX, scaleY, 0.75);
+
+        scalingWrapper.style.transform = `scale(${scale})`;
+    }
 }
 
 function handleInsertion(position) {
@@ -603,10 +737,10 @@ function handleInsertion(position) {
     saveProgress(); // Save progress after a successful round
     
     // Random chance to show dialogue during gameplay
-    if (Math.random() < 0.3) {
+    if (Math.random() < 0.4 && !isGameOver) {
         const dialogue = getRandomDialogue();
         if (dialogue) {
-            setTimeout(() => showSpeechBubble(dialogue), 1000);
+            setTimeout(() => showSpeechBubble(dialogue), 500);
         }
     }
 }
@@ -628,25 +762,17 @@ function gameOver(reason) {
     updateFaceState('sad', getHelpfulTip());
     
     let messageText;
-    let speechBubbleText;
     
     if (reason === 'impossible_move') {
         messageText = 'Game Over! No possible moves.';
-        speechBubbleText = "Ouch, bad luck. There was nowhere to put that one.";
     } else { // Default 'wrong_placement'
         messageText = 'Game Over! Wrong placement';
-        speechBubbleText = getGameOverDialogue();
     }
     
     showMessage(messageText, 'error');
-    showSpeechBubble(speechBubbleText, 5000);
+    showSpeechBubble(getDynamicDeathMessage(currentLevel, totalFails), 5000);
     sounds.game_over.play().catch(e => console.log('Audio play failed:', e));
     
-    // New: Mock player for every 5 deaths
-    if (totalFails % 5 === 0 && totalFails > 0) { // Check if it's a multiple of 5 and not the very first fail
-        setTimeout(() => showSpeechBubble(getDeathMockDialogue(totalFails), 5000), 2000); // Show after initial game over message
-    }
-
     if (sequenceContainer) {
         sequenceContainer.classList.add('shaking');
     }
@@ -871,46 +997,61 @@ updateGameContainerSize();
 
 // The restart button is now always visible via CSS, no need to hide it on initial load.
 
-// Add mouse tracking for eyes
+// Add listener for window resize to adjust scaling
+window.addEventListener('resize', updateGameContainerSize);
+
+// Throttled mouse tracking for eyes using rAF
+let eyeRAFId = null;
+let lastMouseEvent = null;
+
 document.addEventListener('mousemove', (e) => {
-    const faceContainer = document.querySelector('.face-container');
-    const rect = faceContainer?.getBoundingClientRect();
-    if (!rect) return;
-    
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    
-    const deltaX = (e.clientX - centerX) / 20;
-    const deltaY = (e.clientY - centerY) / 20;
-    
-    const leftEye = document.querySelector('.left-eye');
-    const rightEye = document.querySelector('.right-eye');
-    
-    if (leftEye) {
-        leftEye.style.transform = `translate(${Math.max(-3, Math.min(3, deltaX))}px, ${Math.max(-3, Math.min(3, deltaY))}px)`;
-    }
-    if (rightEye) {
-        rightEye.style.transform = `translate(${Math.max(-3, Math.min(3, deltaX))}px, ${Math.max(-3, Math.min(3, deltaY))}px)`;
-    }
-});
+    lastMouseEvent = e;
+    if (eyeRAFId) return;
+    eyeRAFId = requestAnimationFrame(() => {
+        eyeRAFId = null;
+        const faceContainer = document.querySelector('.face-container');
+        const rect = faceContainer?.getBoundingClientRect();
+        if (!rect || !lastMouseEvent) return;
+        
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        const deltaX = (lastMouseEvent.clientX - centerX) / 20;
+        const deltaY = (lastMouseEvent.clientY - centerY) / 20;
+        
+        const leftEye = document.querySelector('.left-eye');
+        const rightEye = document.querySelector('.right-eye');
+        
+        const clampedX = Math.max(-3, Math.min(3, deltaX));
+        const clampedY = Math.max(-3, Math.min(3, deltaY));
+
+        if (leftEye) {
+            leftEye.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+        }
+        if (rightEye) {
+            rightEye.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+        }
+    });
+}, { passive: true });
 
 restartBtn.addEventListener('click', () => {
     sounds.button_click.play().catch(e => console.log('Audio play failed:', e));
     
-    // Increment total fails when the restart button is clicked
-    totalFails++;
-    saveProgress(); // Save the updated fails count
-    if (totalFailsEl) totalFailsEl.textContent = `Fails: ${totalFails}`;
+    // Only increment fails and show a reset message if the player resets *before* losing.
+    if (!isGameOver) {
+        // Increment total fails when the restart button is clicked before a game over.
+        totalFails++;
+        saveProgress(); // Save the updated fails count
+        if (totalFailsEl) totalFailsEl.textContent = `Fails: ${totalFails}`;
 
-    // New: Mock player for using reset if past level 2
-    if (currentLevel > 2) {
-        showSpeechBubble(getResetDialogue(), 4000);
+        // Mock player for using reset if past level 1 and not already in a game over state.
+        if (currentLevel > 1) {
+            showSpeechBubble(getResetDialogue(), 4000);
+        }
     }
 
     currentRound = 1;
-    // Keep currentLevel as is on restart, or reset to 1 if that's desired behavior.
-    // Assuming user wants to restart current game, not entire progress.
-    // If entire progress reset is wanted, add currentLevel = 1;
+    // Keep currentLevel as is on restart, user can reset progress in settings.
     lastGeneratedNumber = null;
     initializeLevel();
     isGameOver = false;
@@ -942,43 +1083,25 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSettings(); // Load settings when the DOM is ready
 
     const loadingScreen = document.getElementById('loading-screen');
-    const loadingFaceContainer = document.querySelector('.loading-face-container');
-    const loadingLeftEye = document.querySelector('.loading-left-eye');
-    const loadingRightEye = document.querySelector('.loading-right-eye');
+    const gameContainer = document.querySelector('.game-container');
 
-    let loadingEyesMoveListener; // Declare to be able to remove it
-
-    if (loadingScreen && loadingFaceContainer && loadingLeftEye && loadingRightEye) {
-        // Function to track mouse for loading screen eyes
-        loadingEyesMoveListener = (e) => {
-            const rect = loadingFaceContainer.getBoundingClientRect();
-            if (!rect) return;
-            
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            
-            const deltaX = (e.clientX - centerX) / 20; // Adjust divisor for sensitivity
-            const deltaY = (e.clientY - centerY) / 20;
-            
-            // Limit eye movement
-            const maxMove = 5; // Pixels
-            
-            loadingLeftEye.style.transform = `translate(${Math.max(-maxMove, Math.min(maxMove, deltaX))}px, ${Math.max(-maxMove, Math.min(maxMove, deltaY))}px)`;
-            loadingRightEye.style.transform = `translate(${Math.max(-maxMove, Math.min(maxMove, deltaX))}px, ${Math.max(-maxMove, Math.min(maxMove, deltaY))}px)`;
-        };
-
-        // Add listener when loading screen is active
-        document.addEventListener('mousemove', loadingEyesMoveListener);
-
-        // Give a moment for the initial rendering and a short cinematic display
+    if (loadingScreen) {
+        // The animation is 4s. After it's done, fade out the loading screen.
         setTimeout(() => {
             loadingScreen.classList.add('fade-out');
-            // Remove from DOM after transition completes
+            
             loadingScreen.addEventListener('transitionend', () => {
                 loadingScreen.style.display = 'none';
-                // Remove the mousemove listener for loading eyes once it's gone
-                document.removeEventListener('mousemove', loadingEyesMoveListener);
-            }, { once: true }); // Use { once: true } to remove the listener after it fires
-        }, 2500); // Display loading screen for 2.5 seconds
+                // Trigger the glitch-in animation for the game container
+                if (gameContainer) {
+                    gameContainer.classList.add('glitch-in');
+                }
+            }, { once: true });
+        }, 4000); // Matches animation duration in CSS
+    } else {
+        // If no loading screen, just make game visible
+        if (gameContainer) {
+            gameContainer.style.visibility = 'visible';
+        }
     }
 });
